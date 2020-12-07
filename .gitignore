@@ -1,0 +1,6 @@
+dist
+node_modules
+
+# log file by lens when running tests using @jest-runner/electron
+lens.log
+

@@ -1,0 +1,31 @@
+{
+    // `root: true` prevent eslint to combine .eslintrc in parent folder with this one
+    // ext developer can remove this line if desire to let eslint to traverses eslint config 
+    // see <http://eslint.org/docs/user-guide/configuring#configuration-cascading-and-hierarchy>
+    "root": true,
+    // require to install @typescript-eslint/parser + typescript
+    "parser": "@typescript-eslint/parser",
+    // Tells ESLint to load the plugin. this allows you to use 
+    // the rules within your codebase
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "extends": [
+        // ESLint's inbuilt "recommended" config
+        "eslint:recommended",
+        // require to install @typescript-eslint/eslint-plugin
+        // just like eslint:recommended, except it only turns on rules from TypeScript-specific plugin
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "env": {
+        // this tells eslint it's safe to use `require`/`module.exports`/`__dirname`...
+        // that are only legal in node.js, we use these in `webpack.config.js`
+        "node": true,
+        "jest": true
+    },
+    "rules": {
+        "indent": ["error", 2],
+        "linebreak-style": ["error","unix"],
+        "quotes": ["error", "double"]
+    }
+}
