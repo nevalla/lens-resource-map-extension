@@ -1,20 +1,22 @@
-import React from "react"
+import "./KubeResourceMap.scss"
+import * as React from "react";
 import { Component } from "@k8slens/extensions";
 
-const { TabLayout } = Component;
+// TODO: add chart wrapper
+// https://www.amcharts.com/docs/v4/chart-types/force-directed/
 
-class KubeResourceMapPage extends React.Component {
-  render(): JSX.Element {
+export class KubeResourceMapPage extends React.Component {
+  render(): React.ReactNode {
     return (
-      <TabLayout>
-        <div>
-          <h1>Resource Map</h1>
-          <br />
-          <p>A very long paragraph</p>
-        </div>
-      </TabLayout>
-    )
+      <div className="KubeResourceMapPage">
+        <Component.TabLayout>
+          <div>
+            <h1>Resource Map</h1>
+            <br/>
+            <p>A very long paragraph</p>
+          </div>
+        </Component.TabLayout>
+      </div>
+    );
   }
 }
-
-export default KubeResourceMapPage

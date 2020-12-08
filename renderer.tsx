@@ -1,16 +1,10 @@
-import { LensRendererExtension, Component } from "@k8slens/extensions";
 import React from "react"
-import KubeResourceMapPage from "./components/KubeResourceMap"
-
-const { Icon } = Component;
+import { Component, LensRendererExtension } from "@k8slens/extensions";
+import { KubeResourceMapPage } from "./components/KubeResourceMap"
 
 export default class KubeResorceMapRenderer extends LensRendererExtension {
-
   clusterPages = [
-    // a standard cluster page
     {
-      id: "kubeResourceMap",
-      title: "Resource Map",
       components: {
         Page: KubeResourceMapPage
       }
@@ -18,16 +12,21 @@ export default class KubeResorceMapRenderer extends LensRendererExtension {
   ]
 
   clusterPageMenus = [
-    // a cluster menu item which links to a cluster page
     {
-      title: "Cluster Page",
-      target: {
-        pageId: "kubeResourceMap",
-        params: {}
-      },
+      title: "Resource Map",
       components: {
-        Icon: (): JSX.Element => <Icon material="pages" />,
+        Icon: MenuIcon,
       }
     }
   ]
+}
+
+export function MenuIcon(props: Component.IconProps): React.ReactElement {
+  return (
+    <Component.Icon
+      {...props}
+      material="bubble_chart"
+      onClick={() => this.navigate()}
+    />
+  )
 }
