@@ -9,12 +9,14 @@ import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
 
-export class KubeResourceMap extends React.Component {
-  protected chart:  am4plugins_forceDirected.ForceDirectedTree;
+export class KubeResourceMap extends React.Component<{ id?: string }> {
+  public htmlId = this.props.id || "resource-map";
+
+  protected chart: am4plugins_forceDirected.ForceDirectedTree;
 
   componentDidMount(): void {
     // Create chart
-    const chart = am4core.create("resource-map", am4plugins_forceDirected.ForceDirectedTree);
+    const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
 
     // Create series
     const series = chart.series.push(new am4plugins_forceDirected.ForceDirectedSeries())
@@ -92,7 +94,7 @@ export class KubeResourceMap extends React.Component {
 
   render(): React.ReactNode {
     return (
-      <div id="resource-map" />
+      <div id={this.htmlId} className="KubeResourceMap" />
     );
   }
 }
