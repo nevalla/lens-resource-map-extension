@@ -1,6 +1,6 @@
 import React from "react"
 import { Component, LensRendererExtension } from "@k8slens/extensions";
-import { KubeResourceMapPage } from "./components/KubeResourceMap"
+import { KubeResourceMapPage } from "./components/KubeResourceMapPage"
 
 export default class KubeResorceMapRenderer extends LensRendererExtension {
   clusterPages = [

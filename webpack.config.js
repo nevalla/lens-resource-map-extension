@@ -40,6 +40,7 @@ module.exports = [
       globalObject: "this",
       filename: "renderer.js",
       path: path.resolve(__dirname, "dist"),
+      chunkFilename: "chunks/[name].js",
     },
     node: {
       __dirname: false,
