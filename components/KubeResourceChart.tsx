@@ -28,6 +28,8 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected daemonsetStore = K8sApi.apiManager.getStore(K8sApi.daemonSetApi) as K8sApi.DaemonSetStore;
   protected secretStore = K8sApi.apiManager.getStore(K8sApi.secretsApi) as K8sApi.SecretsStore;
   protected serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi) as K8sApi.ServiceStore;
+  protected pvcStore = K8sApi.apiManager.getStore(K8sApi.pvcApi) as K8sApi.VolumeClaimStore;
+  protected ingressStore = K8sApi.apiManager.getStore(K8sApi.ingressApi) as K8sApi.IngressStore;
 
   protected colors = {
     namespace: "#3d90ce",
@@ -66,6 +68,8 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       this.daemonsetStore.loadAll(),
       this.podsStore.loadAll(),
       this.statefulsetStore.loadAll(),
+      this.pvcStore.loadAll(),
+      this.ingressStore.loadAll()
     ]);
     KubeResourceChart.isReady = true;
   }
@@ -81,6 +85,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     const {
       namespaceStore, podsStore, serviceStore,
       deploymentStore, daemonsetStore, statefulsetStore,
+      ingressStore, pvcStore
     } = this;
 
     const namespacesData = namespaceStore.items.map((namespace: K8sApi.Namespace) => {
@@ -123,6 +128,48 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       };
     })
 
+    const pvcData = pvcStore.items.map((pvc: K8sApi.PersistentVolumeClaim) => {
+      return {
+        id: `${pvc.kind}-${pvc.getName()}`,
+        kind: pvc.kind,
+        name: pvc.getName(),
+        namespace: pvc.getNs(),
+        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pvc.svg",
+        value: 40,
+      }
+    })
+
+    const ingressData = ingressStore.items.map((ingress: K8sApi.Ingress) => {
+      const secretLinks: string[] = []
+      const serviceLinks: string[] = []
+      ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
+        const secretNode = this.getSecretChartNode(tls.secretName, ingress.getNs())
+        if (secretNode) {
+          secretLinks.push(secretNode.id)
+        }
+      })
+      ingress.spec.rules.forEach((rule) => {
+        rule.http.paths.forEach((path) => {
+          const serviceName = (path.backend as any).serviceName
+          if (serviceName) {
+            const service = this.serviceStore.getByName(serviceName, ingress.getNs())
+            if (service) {
+              serviceLinks.push(`${service.kind}-${service.getName()}`)
+            }
+          }
+        })
+      })
+      return {
+        id: `${ingress.kind}-${ingress.getName()}`,
+        kind: ingress.kind,
+        name: ingress.getName(),
+        namespace: ingress.getNs(),
+        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ing.svg",
+        value: 40,
+        links: secretLinks.concat(serviceLinks)
+      }
+    })
+
     const deploymentData = deploymentStore.items.map((deployment: K8sApi.Deployment) => {
       const pods = deploymentStore.getChildPods(deployment)
       return this.getControllerChartNode(deployment, "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg", pods)
@@ -146,6 +193,8 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       daemonsetData,
       serviceData,
       this.helmData,
+      pvcData,
+      ingressData
     ].flat()
   }
 
@@ -207,15 +256,15 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   }
 
   getControllerChartNode(controller: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]) {
-    const helmLinks: string[] = []
+    const links: string[] = [] // [`Namespace-${controller.getNs()}`]
     if (controller.metadata?.labels?.heritage === "Helm" && controller.metadata?.labels?.release) {
       const releaseName = controller.metadata.labels.release
       if (!this.helmData.find((item: any) => {
         return item.name == releaseName && item.namespace == controller.getNs()
       })) {
-        this.helmData.push(this.getHelmReleaseCartNode(releaseName, controller.getNs()))
+        this.helmData.push(this.getHelmReleaseChartNode(releaseName, controller.getNs()))
       }
-      helmLinks.push(`HelmRelease-${releaseName}`)
+      links.push(`HelmRelease-${releaseName}`)
     }
     return {
       id: `${controller.kind}-${controller.getName()}`,
@@ -226,11 +275,11 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       color: this.colors[controller.kind.toLowerCase() as "pod"],
       image: image,
       children: pods ? this.getChildrenPodsNodes(pods) : [],
-      links: helmLinks
+      links: links
     }
   }
 
-  getHelmReleaseCartNode(name: string, namespace: string): any {
+  getHelmReleaseChartNode(name: string, namespace: string): any {
     return {
       id: `HelmRelease-${name}`,
       name: name,
@@ -239,6 +288,34 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       image: "https://cncf-branding.netlify.app/img/projects/helm/icon/white/helm-icon-white.svg",
       value: 40,
       color: this.colors.helm,
+      links: [`Namespace-${namespace}`]
+    }
+  }
+
+  getSecretChartNode(name: string, namespace: string): any {
+    const secret: K8sApi.Secret = this.secretStore.getByName(name, namespace);
+    if (secret) {
+      const id = `${secret.kind}-${secret.getName()}`
+      const existingSecretNode = this.secretsData.find((item: any) => {
+        return item.id === id
+      });
+
+      if (existingSecretNode) {
+        return existingSecretNode;
+      }
+
+      const dataItem = {
+        id: id,
+        kind: secret.kind,
+        namespace: secret.getNs(),
+        name: secret.getName(),
+        value: 40,
+        color: this.colors.secret,
+        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg"
+      }
+
+      this.secretsData.push(dataItem);
+      return dataItem;
     }
   }
 
@@ -246,24 +323,17 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     return pods.map((pod) => {
 
       const secretLinks: string[] = [];
+      const pvcLinks: string[] = [];
+      pod.getVolumes().filter(volume => volume.persistentVolumeClaim?.claimName).forEach((volume) => {
+        const volumeClaim = this.pvcStore.getByName(volume.persistentVolumeClaim.claimName, pod.getNs())
+        if (volumeClaim) {
+          pvcLinks.push(`${volumeClaim.kind}-${volumeClaim.getName()}`);
+        }
+      })
       pod.getSecrets().forEach((secretName) => {
-        const secret: K8sApi.Secret = this.secretStore.items.find((item: K8sApi.Secret) => item.getName() == secretName && item.getNs() == pod.getNs());
-        if (secret) {
-          const dataItem = {
-            id: `${secret.kind}-${secret.getName()}`,
-            kind: secret.kind,
-            namespace: pod.getNs(),
-            name: secret.getName(),
-            value: 40,
-            color: this.colors.secret,
-            image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg"
-          }
+        const dataItem = this.getSecretChartNode(secretName, pod.getNs());
+        if (dataItem) {
           secretLinks.push(dataItem.id)
-          if (!this.secretsData.find((item: any) => {
-            return item.id === dataItem.id
-          })) {
-            this.secretsData.push(dataItem);
-          }
         }
       })
       return {
@@ -273,7 +343,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         kind: pod.kind,
         image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
         value: 40,
-        links: secretLinks,
+        links: [secretLinks, pvcLinks].flat(),
         color: this.colors.pod,
         children: pod.getContainers().map(container => {
           const secretLinks: string[] = []
