@@ -17,12 +17,12 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected secretsData: any = [];
   protected helmData: any = [];
 
-  protected podsStore: K8sApi.PodsStore;
-  protected deploymentStore: K8sApi.DeploymentStore;
-  protected statefulsetStore: K8sApi.StatefulSetStore;
-  protected daemonsetStore: K8sApi.DaemonSetStore;
-  protected secretStore: K8sApi.SecretsStore;
-  protected serviceStore: K8sApi.ServiceStore
+  protected podsStore = K8sApi.apiManager.getStore(K8sApi.podsApi) as K8sApi.PodsStore;
+  protected deploymentStore = K8sApi.apiManager.getStore(K8sApi.deploymentApi) as K8sApi.DeploymentStore;
+  protected statefulsetStore = K8sApi.apiManager.getStore(K8sApi.statefulSetApi) as K8sApi.StatefulSetStore;
+  protected daemonsetStore = K8sApi.apiManager.getStore(K8sApi.daemonSetApi) as K8sApi.DaemonSetStore;
+  protected secretStore = K8sApi.apiManager.getStore(K8sApi.secretsApi) as K8sApi.SecretsStore;
+  protected serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi) as K8sApi.ServiceStore;
 
   protected colors = {
     namespace: "#3d90ce",
@@ -36,14 +36,25 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     helm: "#0f1689",
   };
 
-  async componentDidMount() {
-    this.podsStore = K8sApi.apiManager.getStore(K8sApi.podsApi) as K8sApi.PodsStore;
-    this.deploymentStore = K8sApi.apiManager.getStore(K8sApi.deploymentApi) as K8sApi.DeploymentStore;
-    this.statefulsetStore = K8sApi.apiManager.getStore(K8sApi.statefulSetApi) as K8sApi.StatefulSetStore;
-    this.daemonsetStore = K8sApi.apiManager.getStore(K8sApi.daemonSetApi) as K8sApi.DaemonSetStore;
-    this.secretStore = K8sApi.apiManager.getStore(K8sApi.secretsApi) as K8sApi.SecretsStore;
-    this.serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi) as K8sApi.ServiceStore;
+  async init() {
+    this.createChart();
+  }
 
+  async componentDidMount() {
+    try {
+      await this.loadData();
+      this.createChart();
+    } catch (err) {
+      console.error("Oops, something went wrong", err);
+    }
+  }
+
+  componentWillUnmount() {
+    this.destroyChart();
+  }
+
+  // define minimal amount of data to start show the tree
+  protected async loadData() {
     await Promise.all([
       this.secretStore.loadAll(),
       this.serviceStore.loadAll(),
@@ -54,13 +65,14 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     ]);
   }
 
-  componentWillUnmount(): void {
+  protected destroyChart() {
     if (this.chart) {
       this.chart.dispose();
+      this.chart = null;
     }
   }
 
-  protected createChart(){
+  protected createChart() {
     const { podsStore, serviceStore, deploymentStore, daemonsetStore, statefulsetStore } = this;
 
     // Create chart
