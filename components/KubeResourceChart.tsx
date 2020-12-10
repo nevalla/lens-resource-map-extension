@@ -1,8 +1,8 @@
 import "./KubeResourceChart.scss"
+
 import * as React from "react";
 import * as am4core from "@amcharts/amcharts4/core";
 import * as am4plugins_forceDirected from "@amcharts/amcharts4/plugins/forceDirected";
-
 import am4themes_dark from "@amcharts/amcharts4/themes/dark";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 import { Component, K8sApi } from "@k8slens/extensions";
@@ -11,6 +11,18 @@ import { observable } from "mobx";
 
 am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
+
+// todo: inherit from @amcharts/* types if exists
+export interface ChartDataSeries {
+  id: string;
+  name: string
+  image: string
+  value: number
+  color?: string
+  links?: string[]
+  tooltipHTML: string;
+  children?: ChartDataSeries[]
+}
 
 @observer
 export class KubeResourceChart extends React.Component<{ id?: string }> {
@@ -43,6 +55,19 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     helm: "#0f1689",
   };
 
+  protected icons = {
+    helm: "https://cncf-branding.netlify.app/img/projects/helm/icon/white/helm-icon-white.svg",
+    namespace: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ns.svg",
+    pod: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
+    service: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg",
+    pvc: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pvc.svg",
+    ingress: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ing.svg",
+    deployment: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg",
+    statefulset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/sts.svg",
+    daemonset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ds.svg",
+    secret: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg",
+  }
+
   async componentDidMount() {
     try {
       await this.loadData();
@@ -57,9 +82,8 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   }
 
   protected async loadData() {
-    if (KubeResourceChart.isReady) {
-      return; // already loaded
-    }
+    if (KubeResourceChart.isReady) return;
+
     await Promise.all([
       this.namespaceStore.loadAll(),
       this.secretStore.loadAll(),
@@ -81,25 +105,48 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     }
   }
 
-  getChartDataSeries() {
+  getTooltipTemplate<O extends K8sApi.KubeObject>(obj: O, customize?: (entries: string[][], obj: O) => string[][]): string {
+    let entries: string[][] = [
+      [obj.kind, obj.getName()],
+    ];
+    const namespace = obj.getNs();
+    if (namespace) {
+      entries.push(["Namespace", namespace]);
+    }
+    if (customize) {
+      entries = customize(entries, obj);
+    }
+    return (
+      `<div class="KubeResourceChartTooltip flex column gaps">
+        ${entries.map(([name, value]) => `
+          <p>
+            <b>${name}</b>: <em>${value}</em>
+          </p>
+        `).join("")}
+      </div>`
+    )
+  }
+
+  getChartDataSeries(): ChartDataSeries[] {
     const {
       namespaceStore, podsStore, serviceStore,
       deploymentStore, daemonsetStore, statefulsetStore,
-      ingressStore, pvcStore
+      ingressStore, pvcStore,
     } = this;
 
-    const namespacesData = namespaceStore.items.map((namespace: K8sApi.Namespace) => {
+    const namespacesData: ChartDataSeries[] = namespaceStore.items.map((namespace: K8sApi.Namespace) => {
       return {
         id: `${namespace.kind}-${namespace.getName()}`,
         kind: namespace.kind,
         name: namespace.getName(),
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ns.svg",
+        image: this.icons.namespace,
         value: 25,
         color: this.colors.namespace,
+        tooltipHTML: this.getTooltipTemplate(namespace),
       }
     });
 
-    const serviceData = serviceStore.items.map((service: K8sApi.Service) => {
+    const serviceData: ChartDataSeries[] = serviceStore.items.map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
       let podLinks: string[] = []
       if (selector) {
@@ -121,25 +168,27 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         kind: service.kind,
         name: service.getName(),
         namespace: service.getNs(),
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg",
+        image: this.icons.service,
         value: 40,
         color: this.colors.service,
-        links: podLinks
+        links: podLinks,
+        tooltipHTML: this.getTooltipTemplate(service),
       };
     })
 
-    const pvcData = pvcStore.items.map((pvc: K8sApi.PersistentVolumeClaim) => {
+    const pvcData: ChartDataSeries[] = pvcStore.items.map((pvc: K8sApi.PersistentVolumeClaim) => {
       return {
         id: `${pvc.kind}-${pvc.getName()}`,
         kind: pvc.kind,
         name: pvc.getName(),
         namespace: pvc.getNs(),
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pvc.svg",
+        image: this.icons.pvc,
         value: 40,
+        tooltipHTML: this.getTooltipTemplate(pvc),
       }
     })
 
-    const ingressData = ingressStore.items.map((ingress: K8sApi.Ingress) => {
+    const ingressData: ChartDataSeries[] = ingressStore.items.map((ingress: K8sApi.Ingress) => {
       const secretLinks: string[] = []
       const serviceLinks: string[] = []
       ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
@@ -164,25 +213,26 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         kind: ingress.kind,
         name: ingress.getName(),
         namespace: ingress.getNs(),
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ing.svg",
+        image: this.icons.ingress,
         value: 40,
-        links: secretLinks.concat(serviceLinks)
+        links: secretLinks.concat(serviceLinks),
+        tooltipHTML: this.getTooltipTemplate(ingress),
       }
     })
 
-    const deploymentData = deploymentStore.items.map((deployment: K8sApi.Deployment) => {
+    const deploymentData: ChartDataSeries[] = deploymentStore.items.map((deployment: K8sApi.Deployment) => {
       const pods = deploymentStore.getChildPods(deployment)
-      return this.getControllerChartNode(deployment, "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg", pods)
+      return this.getControllerChartNode(deployment, this.icons.deployment, pods)
     });
 
-    const statefulsetData = statefulsetStore.items.map((statefulset: K8sApi.StatefulSet) => {
+    const statefulsetData: ChartDataSeries[] = statefulsetStore.items.map((statefulset: K8sApi.StatefulSet) => {
       const pods = statefulsetStore.getChildPods(statefulset)
-      return this.getControllerChartNode(statefulset, "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/sts.svg", pods)
+      return this.getControllerChartNode(statefulset, this.icons.statefulset, pods)
     });
 
-    const daemonsetData = daemonsetStore.items.map((daemonset: K8sApi.DaemonSet) => {
+    const daemonsetData: ChartDataSeries[] = daemonsetStore.items.map((daemonset: K8sApi.DaemonSet) => {
       const pods = daemonsetStore.getChildPods(daemonset)
-      return this.getControllerChartNode(daemonset, "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ds.svg", pods)
+      return this.getControllerChartNode(daemonset, this.icons.daemonset, pods)
     });
 
     return [
@@ -229,13 +279,11 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     //series.nodes.template.label.hideOversized = true;
     //series.nodes.template.label.truncate = true;
     series.links.template.distance = 1.5;
-    series.nodes.template.tooltipText = `
-[bold]{name}[/]
----
-[bold]kind:[/] {kind}
-[bold]namespace:[/] {namespace}
-`;
+    series.nodes.template.togglable = true;
+    series.nodes.template.tooltipHTML = "{tooltipHTML}"
+
     series.nodes.template.fillOpacity = 1;
+    series.nodes.template.expandAll = false;
 
     // Add labels
     series.nodes.template.label.text = "{name}";
@@ -255,44 +303,42 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     this.chart = chart;
   }
 
-  getControllerChartNode(controller: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]) {
+  getControllerChartNode(helmRelease: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]): ChartDataSeries {
     const links: string[] = [] // [`Namespace-${controller.getNs()}`]
-    if (controller.metadata?.labels?.heritage === "Helm" && controller.metadata?.labels?.release) {
-      const releaseName = controller.metadata.labels.release
+    if (helmRelease.metadata?.labels?.heritage === "Helm" && helmRelease.metadata?.labels?.release) {
+      const releaseName = helmRelease.metadata.labels.release
       if (!this.helmData.find((item: any) => {
-        return item.name == releaseName && item.namespace == controller.getNs()
+        return item.name == releaseName && item.namespace == helmRelease.getNs()
       })) {
-        this.helmData.push(this.getHelmReleaseChartNode(releaseName, controller.getNs()))
+        this.helmData.push(this.getHelmReleaseChartNode(releaseName, helmRelease))
       }
       links.push(`HelmRelease-${releaseName}`)
     }
     return {
-      id: `${controller.kind}-${controller.getName()}`,
-      name: controller.getName(),
-      kind: controller.kind,
-      namespace: controller.getNs(),
+      id: `${helmRelease.kind}-${helmRelease.getName()}`,
+      name: helmRelease.getName(),
       value: 60,
-      color: this.colors[controller.kind.toLowerCase() as "pod"],
+      color: this.colors[helmRelease.kind.toLowerCase() as "pod"],
       image: image,
       children: pods ? this.getChildrenPodsNodes(pods) : [],
-      links: links
+      links: links,
+      tooltipHTML: this.getTooltipTemplate(helmRelease),
     }
   }
 
-  getHelmReleaseChartNode(name: string, namespace: string): any {
+  getHelmReleaseChartNode(name: string, release: K8sApi.KubeObject): ChartDataSeries {
     return {
       id: `HelmRelease-${name}`,
       name: name,
-      namespace: namespace,
-      kind: "HelmRelease",
-      image: "https://cncf-branding.netlify.app/img/projects/helm/icon/white/helm-icon-white.svg",
+      image: this.icons.helm,
       value: 40,
       color: this.colors.helm,
-      links: [`Namespace-${namespace}`]
+      links: [`Namespace-${release.getNs()}`],
+      tooltipHTML: this.getTooltipTemplate(release),
     }
   }
 
-  getSecretChartNode(name: string, namespace: string): any {
+  getSecretChartNode(name: string, namespace: string): ChartDataSeries {
     const secret: K8sApi.Secret = this.secretStore.getByName(name, namespace);
     if (secret) {
       const id = `${secret.kind}-${secret.getName()}`
@@ -304,14 +350,13 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         return existingSecretNode;
       }
 
-      const dataItem = {
+      const dataItem: ChartDataSeries = {
         id: id,
-        kind: secret.kind,
-        namespace: secret.getNs(),
         name: secret.getName(),
         value: 40,
         color: this.colors.secret,
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg"
+        image: this.icons.secret,
+        tooltipHTML: this.getTooltipTemplate(secret),
       }
 
       this.secretsData.push(dataItem);
@@ -319,9 +364,8 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     }
   }
 
-  getChildrenPodsNodes(pods: K8sApi.Pod[]): any {
+  getChildrenPodsNodes(pods: K8sApi.Pod[]): ChartDataSeries[] {
     return pods.map((pod) => {
-
       const secretLinks: string[] = [];
       const pvcLinks: string[] = [];
       pod.getVolumes().filter(volume => volume.persistentVolumeClaim?.claimName).forEach((volume) => {
@@ -339,12 +383,12 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       return {
         id: `${pod.kind}-${pod.getName()}`,
         name: pod.getName(),
-        namespace: pod.getNs(),
         kind: pod.kind,
-        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
+        image: this.icons.pod,
         value: 40,
         links: [secretLinks, pvcLinks].flat(),
         color: this.colors.pod,
+        tooltipHTML: this.getTooltipTemplate(pod),
         children: pod.getContainers().map(container => {
           const secretLinks: string[] = []
           container.env?.forEach((env) => {
@@ -355,11 +399,11 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
                 const dataItem = {
                   id: `${secret.kind}-${secret.getName()}`,
                   kind: secret.kind,
-                  namespace: pod.getNs(),
                   name: secret.getName(),
                   value: 40,
                   color: this.colors.secret,
-                  image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg"
+                  image: this.icons.secret,
+                  tooltip: this.getTooltipTemplate(secret),
                 }
                 secretLinks.push(dataItem.id)
                 if (!this.secretsData.find((item: any) => {
@@ -373,12 +417,12 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
           return {
             id: `${pod.kind}-${pod.getName()}-${container.name}`,
             kind: "Container",
-            namespace: pod.getNs(),
             name: container.name,
-            image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
+            image: this.icons.pod,
             value: 20,
             color: this.colors.container,
-            links: secretLinks
+            links: secretLinks,
+            tooltipHTML: this.getTooltipTemplate(pod),
           }
         })
       }
