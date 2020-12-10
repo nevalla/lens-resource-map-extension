@@ -9,3 +9,22 @@
     overflow: hidden;
   }
 }
+
+.KubeResourceChartLegend {
+  background: var(--layoutBackground);
+
+  .title {
+    text-align: center;
+    font-size: 110%;
+    color: var(--textColorSecondary);
+  }
+
+  .resource-icon {
+    border: none;
+    border-radius: 50%;
+  }
+
+  .resource-kind {
+    font-style: italic;
+  }
+}

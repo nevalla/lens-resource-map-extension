@@ -28,7 +28,34 @@ export interface ChartDataSeries {
 export class KubeResourceChart extends React.Component<{ id?: string }> {
   @observable static isReady = false;
 
+  static colors = {
+    namespace: "#3d90ce",
+    deployment: "#6771dc",
+    daemonset: "#a367dc",
+    statefulset: "#dc67ce",
+    service: "#808af5",
+    secret: "#dc8c67",
+    pod: "#80f58e",
+    container: "#8cdcff",
+    helm: "#0f1689",
+  };
+
+  static icons = {
+    helm: "https://cncf-branding.netlify.app/img/projects/helm/icon/white/helm-icon-white.svg",
+    namespace: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ns.svg",
+    pod: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
+    service: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg",
+    pvc: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pvc.svg",
+    ingress: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ing.svg",
+    deployment: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg",
+    statefulset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/sts.svg",
+    daemonset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ds.svg",
+    secret: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg",
+  }
+
   protected htmlId = this.props.id || "resource-map";
+  protected icons = KubeResourceChart.icons
+  protected colors = KubeResourceChart.colors
   protected chart: am4plugins_forceDirected.ForceDirectedTree;
   protected secretsData: any = [];
   protected helmData: any = [];
@@ -42,31 +69,6 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi) as K8sApi.ServiceStore;
   protected pvcStore = K8sApi.apiManager.getStore(K8sApi.pvcApi) as K8sApi.VolumeClaimStore;
   protected ingressStore = K8sApi.apiManager.getStore(K8sApi.ingressApi) as K8sApi.IngressStore;
-
-  protected colors = {
-    namespace: "#3d90ce",
-    deployment: "#6771dc",
-    daemonset: "#a367dc",
-    statefulset: "#dc67ce",
-    service: "#808af5",
-    secret: "#dc8c67",
-    pod: "#80f58e",
-    container: "#8cdcff",
-    helm: "#0f1689",
-  };
-
-  protected icons = {
-    helm: "https://cncf-branding.netlify.app/img/projects/helm/icon/white/helm-icon-white.svg",
-    namespace: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ns.svg",
-    pod: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg",
-    service: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg",
-    pvc: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pvc.svg",
-    ingress: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ing.svg",
-    deployment: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg",
-    statefulset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/sts.svg",
-    daemonset: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ds.svg",
-    secret: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg",
-  }
 
   async componentDidMount() {
     try {
@@ -139,7 +141,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         id: `${namespace.kind}-${namespace.getName()}`,
         kind: namespace.kind,
         name: namespace.getName(),
-        image: this.icons.namespace,
+        image: KubeResourceChart.icons.namespace,
         value: 25,
         color: this.colors.namespace,
         tooltipHTML: this.getTooltipTemplate(namespace),
