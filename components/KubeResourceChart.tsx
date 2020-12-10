@@ -5,14 +5,18 @@ import * as am4plugins_forceDirected from "@amcharts/amcharts4/plugins/forceDire
 
 import am4themes_dark from "@amcharts/amcharts4/themes/dark";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
-import { K8sApi } from "@k8slens/extensions";
+import { Component, K8sApi } from "@k8slens/extensions";
+import { observer } from "mobx-react";
+import { observable } from "mobx";
 
 am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
 
+@observer
 export class KubeResourceChart extends React.Component<{ id?: string }> {
-  public htmlId = this.props.id || "resource-map";
+  @observable static isReady = false;
 
+  protected htmlId = this.props.id || "resource-map";
   protected chart: am4plugins_forceDirected.ForceDirectedTree;
   protected secretsData: any = [];
   protected helmData: any = [];
@@ -50,8 +54,10 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     this.destroyChart();
   }
 
-  // define minimal amount of data to start show the tree
   protected async loadData() {
+    if (KubeResourceChart.isReady) {
+      return; // already loaded
+    }
     await Promise.all([
       this.namespaceStore.loadAll(),
       this.secretStore.loadAll(),
@@ -61,6 +67,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       this.podsStore.loadAll(),
       this.statefulsetStore.loadAll(),
     ]);
+    KubeResourceChart.isReady = true;
   }
 
   protected destroyChart() {
@@ -143,6 +150,10 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   }
 
   protected createChart() {
+    if (this.chart) {
+      this.destroyChart();
+    }
+
     // Create chart
     const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
 
@@ -306,7 +317,9 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
 
   render() {
     return (
-      <div id={this.htmlId} className="KubeResourceChart"/>
+      <div id={this.htmlId} className="KubeResourceChart flex center">
+        {!KubeResourceChart.isReady && <Component.Spinner/>}
+      </div>
     );
   }
 }
