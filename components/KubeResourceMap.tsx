@@ -1,15 +1,16 @@
 import "./KubeResourceMap.scss"
-import * as React from "react";
+import React from "react";
+import { Component } from "@k8slens/extensions";
 import { KubeResourceChart } from "./KubeResourceChart"
 
 export class KubeResourceMap extends React.Component {
   render() {
     return (
-      <div className="KubeResourceMap">
-        <h1>Resource Map</h1>
+      <Component.TabLayout className="KubeResourceMap">
+        <h2>Resource Map</h2>
         <br/>
         <KubeResourceChart/>
-      </div>
+      </Component.TabLayout>
     );
   }
 }

@@ -1,3 +1,11 @@
 .KubeResourceMap {
   padding: calc(var(--padding) * 2);
+
+  h2 {
+    border-bottom: 1px solid;
+  }
+
+  main {
+    overflow: hidden;
+  }
 }
