@@ -13,15 +13,20 @@ am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
 
 // todo: inherit from @amcharts/* types if exists
+// https://www.amcharts.com/docs/v4/chart-types/force-directed/#Setting_data_fields
 export interface ChartDataSeries {
   id: string;
-  name: string
-  image: string
-  value: number
+  name?: string
+  image?: string
+  value?: number
+  collapsed?: boolean
+  disabled?: boolean
   color?: string
   links?: string[]
-  tooltipHTML: string;
+  linkWith?: boolean
+  hiddenInLegend?: boolean
   children?: ChartDataSeries[]
+  tooltipHTML?: string;
 }
 
 @observer
@@ -136,17 +141,23 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       ingressStore, pvcStore,
     } = this;
 
-    const namespacesData: ChartDataSeries[] = namespaceStore.items.map((namespace: K8sApi.Namespace) => {
-      return {
-        id: `${namespace.kind}-${namespace.getName()}`,
-        kind: namespace.kind,
-        name: namespace.getName(),
-        image: KubeResourceChart.icons.namespace,
-        value: 25,
-        color: this.colors.namespace,
-        tooltipHTML: this.getTooltipTemplate(namespace),
-      }
-    });
+    const namespacesData: ChartDataSeries = {
+      id: "namespaces",
+      tooltipHTML: "Namespaces",
+      image: KubeResourceChart.icons.namespace,
+      color: this.colors.namespace,
+      collapsed: true, // fixme: figure out why doesn't work
+      children: namespaceStore.items.map((namespace: K8sApi.Namespace) => {
+        return {
+          id: `${namespace.kind}-${namespace.getName()}`,
+          name: namespace.getName(),
+          image: KubeResourceChart.icons.namespace,
+          value: 20,
+          color: this.colors.namespace,
+          tooltipHTML: this.getTooltipTemplate(namespace),
+        }
+      })
+    };
 
     const serviceData: ChartDataSeries[] = serviceStore.items.map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
@@ -167,9 +178,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       }
       return {
         id: `${service.kind}-${service.getName()}`,
-        kind: service.kind,
         name: service.getName(),
-        namespace: service.getNs(),
         image: this.icons.service,
         value: 40,
         color: this.colors.service,
@@ -181,9 +190,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     const pvcData: ChartDataSeries[] = pvcStore.items.map((pvc: K8sApi.PersistentVolumeClaim) => {
       return {
         id: `${pvc.kind}-${pvc.getName()}`,
-        kind: pvc.kind,
         name: pvc.getName(),
-        namespace: pvc.getNs(),
         image: this.icons.pvc,
         value: 40,
         tooltipHTML: this.getTooltipTemplate(pvc),
@@ -285,7 +292,6 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     series.nodes.template.tooltipHTML = "{tooltipHTML}"
 
     series.nodes.template.fillOpacity = 1;
-    series.nodes.template.expandAll = false;
 
     // Add labels
     series.nodes.template.label.text = "{name}";
