@@ -16,27 +16,52 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected chart: am4plugins_forceDirected.ForceDirectedTree;
   protected secretsData: any = [];
   protected helmData: any = [];
+
+  protected podsStore: K8sApi.PodsStore;
+  protected deploymentStore: K8sApi.DeploymentStore;
+  protected statefulsetStore: K8sApi.StatefulSetStore;
+  protected daemonsetStore: K8sApi.DaemonSetStore;
   protected secretStore: K8sApi.SecretsStore;
   protected serviceStore: K8sApi.ServiceStore
-  protected colors: any;
 
-  async componentDidMount(): Promise<void> {
-    const deploymentStore = K8sApi.apiManager.getStore(K8sApi.deploymentApi) as K8sApi.DeploymentStore;
-    const statefulsetStore = K8sApi.apiManager.getStore(K8sApi.statefulSetApi) as K8sApi.StatefulSetStore;
-    const daemonsetStore = K8sApi.apiManager.getStore(K8sApi.daemonSetApi) as K8sApi.DaemonSetStore;
-    const podsStore = K8sApi.apiManager.getStore(K8sApi.podsApi) as K8sApi.PodsStore;
+  protected colors = {
+    namespace: "#3d90ce",
+    deployment: "#6771dc",
+    daemonset: "#a367dc",
+    statefulset: "#dc67ce",
+    service: "#808af5",
+    secret: "#dc8c67",
+    pod: "#80f58e",
+    container: "#8cdcff",
+    helm: "#0f1689",
+  };
 
-    this.secretStore = K8sApi.apiManager.getStore(K8sApi.secretsApi);
-    this.serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi);
+  async componentDidMount() {
+    this.podsStore = K8sApi.apiManager.getStore(K8sApi.podsApi) as K8sApi.PodsStore;
+    this.deploymentStore = K8sApi.apiManager.getStore(K8sApi.deploymentApi) as K8sApi.DeploymentStore;
+    this.statefulsetStore = K8sApi.apiManager.getStore(K8sApi.statefulSetApi) as K8sApi.StatefulSetStore;
+    this.daemonsetStore = K8sApi.apiManager.getStore(K8sApi.daemonSetApi) as K8sApi.DaemonSetStore;
+    this.secretStore = K8sApi.apiManager.getStore(K8sApi.secretsApi) as K8sApi.SecretsStore;
+    this.serviceStore = K8sApi.apiManager.getStore(K8sApi.serviceApi) as K8sApi.ServiceStore;
 
     await Promise.all([
       this.secretStore.loadAll(),
       this.serviceStore.loadAll(),
-      deploymentStore.loadAll(),
-      daemonsetStore.loadAll(),
-      podsStore.loadAll(),
-      statefulsetStore.loadAll(),
+      this.deploymentStore.loadAll(),
+      this.daemonsetStore.loadAll(),
+      this.podsStore.loadAll(),
+      this.statefulsetStore.loadAll(),
     ]);
+  }
+
+  componentWillUnmount(): void {
+    if (this.chart) {
+      this.chart.dispose();
+    }
+  }
+
+  protected createChart(){
+    const { podsStore, serviceStore, deploymentStore, daemonsetStore, statefulsetStore } = this;
 
     // Create chart
     const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
@@ -45,17 +70,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     // Create series
     const series = chart.series.push(new am4plugins_forceDirected.ForceDirectedSeries());
 
-    this.colors = {
-      deployment: "#6771dc",
-      daemonset: "#a367dc",
-      statefulset: "#dc67ce",
-      service: "#808af5",
-      secret: "#dc8c67",
-      pod: "#80f58e",
-      container: "#8cdcff",
-      helm: "#0f1689"
-    }
-    const serviceData = this.serviceStore.items.map((service: K8sApi.Service) => {
+    const serviceData = serviceStore.items.map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
       let podLinks: string[] = []
       if (selector) {
@@ -144,12 +159,6 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     this.chart = chart;
   }
 
-  componentWillUnmount(): void {
-    if (this.chart) {
-      this.chart.dispose();
-    }
-  }
-
   getControllerChartNode(controller: any, image: string, pods: K8sApi.Pod[]) {
     const helmLinks: string[] = []
     if (controller.metadata?.labels?.heritage === "Helm" && controller.metadata?.labels?.release) {
@@ -167,7 +176,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       kind: controller.kind,
       namespace: controller.getNs(),
       value: 60,
-      color: this.colors[controller.kind.toLowerCase()],
+      color: this.colors[controller.kind.toLowerCase() as "pod"],
       image: image,
       children: pods ? this.getChildrenPodsNodes(pods) : [],
       links: helmLinks
