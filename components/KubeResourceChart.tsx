@@ -17,6 +17,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected secretsData: any = [];
   protected helmData: any = [];
 
+  protected namespaceStore = K8sApi.apiManager.getStore(K8sApi.namespacesApi) as K8sApi.NamespaceStore;
   protected podsStore = K8sApi.apiManager.getStore(K8sApi.podsApi) as K8sApi.PodsStore;
   protected deploymentStore = K8sApi.apiManager.getStore(K8sApi.deploymentApi) as K8sApi.DeploymentStore;
   protected statefulsetStore = K8sApi.apiManager.getStore(K8sApi.statefulSetApi) as K8sApi.StatefulSetStore;
@@ -36,10 +37,6 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     helm: "#0f1689",
   };
 
-  async init() {
-    this.createChart();
-  }
-
   async componentDidMount() {
     try {
       await this.loadData();
@@ -56,6 +53,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   // define minimal amount of data to start show the tree
   protected async loadData() {
     await Promise.all([
+      this.namespaceStore.loadAll(),
       this.secretStore.loadAll(),
       this.serviceStore.loadAll(),
       this.deploymentStore.loadAll(),
@@ -72,15 +70,22 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     }
   }
 
-  protected createChart() {
-    const { podsStore, serviceStore, deploymentStore, daemonsetStore, statefulsetStore } = this;
+  getChartDataSeries() {
+    const {
+      namespaceStore, podsStore, serviceStore,
+      deploymentStore, daemonsetStore, statefulsetStore,
+    } = this;
 
-    // Create chart
-    const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
-
-    chart.zoomable = true;
-    // Create series
-    const series = chart.series.push(new am4plugins_forceDirected.ForceDirectedSeries());
+    const namespacesData = namespaceStore.items.map((namespace: K8sApi.Namespace) => {
+      return {
+        id: `${namespace.kind}-${namespace.getName()}`,
+        kind: namespace.kind,
+        name: namespace.getName(),
+        image: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ns.svg",
+        value: 25,
+        color: this.colors.namespace,
+      }
+    });
 
     const serviceData = serviceStore.items.map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
@@ -126,8 +131,27 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       return this.getControllerChartNode(daemonset, "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/ds.svg", pods)
     });
 
+    return [
+      namespacesData,
+      deploymentData,
+      this.secretsData,
+      statefulsetData,
+      daemonsetData,
+      serviceData,
+      this.helmData,
+    ].flat()
+  }
+
+  protected createChart() {
+    // Create chart
+    const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
+
+    chart.zoomable = true;
+    // Create series
+    const series = chart.series.push(new am4plugins_forceDirected.ForceDirectedSeries());
+
     // Set data
-    series.data = deploymentData.concat(this.secretsData, statefulsetData, daemonsetData, serviceData, this.helmData);
+    series.data = this.getChartDataSeries();
 
     // Set up data fields
     series.dataFields.value = "value";
@@ -171,7 +195,7 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     this.chart = chart;
   }
 
-  getControllerChartNode(controller: any, image: string, pods: K8sApi.Pod[]) {
+  getControllerChartNode(controller: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]) {
     const helmLinks: string[] = []
     if (controller.metadata?.labels?.heritage === "Helm" && controller.metadata?.labels?.release) {
       const releaseName = controller.metadata.labels.release
