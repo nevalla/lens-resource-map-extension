@@ -37,10 +37,7 @@ export class KubeResourceMap extends React.Component {
           </h2>
           <NamespaceSelect className="box right"/>
         </header>
-        <br/>
-        <KubeResourceChart
-          selectedNamespaces={Array.from(selectedNamespaces)}
-        />
+        <KubeResourceChart selectedNamespaces={Array.from(selectedNamespaces)}/>
       </Component.TabLayout>
     );
   }
