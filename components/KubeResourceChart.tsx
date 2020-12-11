@@ -6,8 +6,8 @@ import * as am4plugins_forceDirected from "@amcharts/amcharts4/plugins/forceDire
 import am4themes_dark from "@amcharts/amcharts4/themes/dark";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 import { Component, K8sApi } from "@k8slens/extensions";
-import { observer } from "mobx-react";
-import { observable } from "mobx";
+import { disposeOnUnmount, observer } from "mobx-react";
+import { autorun, observable } from "mobx";
 
 am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
@@ -30,8 +30,9 @@ export interface ChartDataSeries {
 }
 
 @observer
-export class KubeResourceChart extends React.Component<{ id?: string }> {
+export class KubeResourceChart extends React.Component<{ id?: string, namespace?: string | string[] }> {
   @observable static isReady = false;
+  @observable selectedNamespace: string | string[];
 
   static colors = {
     namespace: "#3d90ce",
@@ -42,7 +43,9 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     secret: "#dc8c67",
     pod: "#80f58e",
     container: "#8cdcff",
+    ingress: "#67dcbb",
     helm: "#0f1689",
+    pvc: "#cdff93"
   };
 
   static icons = {
@@ -76,12 +79,27 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
   protected ingressStore = K8sApi.apiManager.getStore(K8sApi.ingressApi) as K8sApi.IngressStore;
 
   async componentDidMount() {
+    disposeOnUnmount(this, [
+      autorun(() => {
+        const { namespace } = this.props;
+
+        if (namespace) {
+          this.selectedNamespace = namespace; // refresh
+        }
+      })
+    ]);
     try {
       await this.loadData();
       this.createChart();
+
     } catch (err) {
       console.error("Oops, something went wrong", err);
     }
+  }
+
+  componentDidUpdate() {
+    console.log("Compoment update")
+    this.createChart()
   }
 
   componentWillUnmount() {
@@ -140,12 +158,15 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       deploymentStore, daemonsetStore, statefulsetStore,
       ingressStore, pvcStore,
     } = this;
+    this.secretsData = [];
+    this.helmData = [];
 
-    const namespacesData: ChartDataSeries = {
+    /*const namespacesData: ChartDataSeries = {
       id: "namespaces",
       tooltipHTML: "Namespaces",
       image: KubeResourceChart.icons.namespace,
       color: this.colors.namespace,
+      value: 50,
       collapsed: true, // fixme: figure out why doesn't work
       children: namespaceStore.items.map((namespace: K8sApi.Namespace) => {
         return {
@@ -158,8 +179,9 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         }
       })
     };
+    */
 
-    const serviceData: ChartDataSeries[] = serviceStore.items.map((service: K8sApi.Service) => {
+    const serviceData: ChartDataSeries[] = serviceStore.getAllByNs(this.selectedNamespace).map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
       let podLinks: string[] = []
       if (selector) {
@@ -187,17 +209,18 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
       };
     })
 
-    const pvcData: ChartDataSeries[] = pvcStore.items.map((pvc: K8sApi.PersistentVolumeClaim) => {
+    const pvcData: ChartDataSeries[] = pvcStore.getAllByNs(this.selectedNamespace).map((pvc: K8sApi.PersistentVolumeClaim) => {
       return {
         id: `${pvc.kind}-${pvc.getName()}`,
         name: pvc.getName(),
         image: this.icons.pvc,
+        color: this.colors.pvc,
         value: 40,
         tooltipHTML: this.getTooltipTemplate(pvc),
       }
     })
 
-    const ingressData: ChartDataSeries[] = ingressStore.items.map((ingress: K8sApi.Ingress) => {
+    const ingressData: ChartDataSeries[] = ingressStore.getAllByNs(this.selectedNamespace).map((ingress: K8sApi.Ingress) => {
       const secretLinks: string[] = []
       const serviceLinks: string[] = []
       ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
@@ -226,26 +249,27 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
         value: 40,
         links: secretLinks.concat(serviceLinks),
         tooltipHTML: this.getTooltipTemplate(ingress),
+        color: this.colors.ingress,
       }
     })
 
-    const deploymentData: ChartDataSeries[] = deploymentStore.items.map((deployment: K8sApi.Deployment) => {
+
+    const deploymentData: ChartDataSeries[] = deploymentStore.getAllByNs(this.selectedNamespace).map((deployment: K8sApi.Deployment) => {
       const pods = deploymentStore.getChildPods(deployment)
       return this.getControllerChartNode(deployment, this.icons.deployment, pods)
     });
 
-    const statefulsetData: ChartDataSeries[] = statefulsetStore.items.map((statefulset: K8sApi.StatefulSet) => {
+    const statefulsetData: ChartDataSeries[] = statefulsetStore.getAllByNs(this.selectedNamespace).map((statefulset: K8sApi.StatefulSet) => {
       const pods = statefulsetStore.getChildPods(statefulset)
       return this.getControllerChartNode(statefulset, this.icons.statefulset, pods)
     });
 
-    const daemonsetData: ChartDataSeries[] = daemonsetStore.items.map((daemonset: K8sApi.DaemonSet) => {
+    const daemonsetData: ChartDataSeries[] = daemonsetStore.getAllByNs(this.selectedNamespace).map((daemonset: K8sApi.DaemonSet) => {
       const pods = daemonsetStore.getChildPods(daemonset)
       return this.getControllerChartNode(daemonset, this.icons.daemonset, pods)
     });
 
     return [
-      namespacesData,
       deploymentData,
       this.secretsData,
       statefulsetData,
@@ -311,39 +335,56 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
     this.chart = chart;
   }
 
-  getControllerChartNode(helmRelease: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]): ChartDataSeries {
+  getControllerChartNode(object: K8sApi.KubeObject, image: string, pods: K8sApi.Pod[]): ChartDataSeries {
     const links: string[] = [] // [`Namespace-${controller.getNs()}`]
-    if (helmRelease.metadata?.labels?.heritage === "Helm" && helmRelease.metadata?.labels?.release) {
-      const releaseName = helmRelease.metadata.labels.release
-      if (!this.helmData.find((item: any) => {
-        return item.name == releaseName && item.namespace == helmRelease.getNs()
-      })) {
-        this.helmData.push(this.getHelmReleaseChartNode(releaseName, helmRelease))
-      }
-      links.push(`HelmRelease-${releaseName}`)
+    if (object.metadata?.labels?.heritage === "Helm" && object.metadata?.labels?.release) {
+      const releaseName = object.metadata.labels.release
+      const release = this.getHelmReleaseChartNode(releaseName, object.getNs())
+      links.push(release.id)
     }
     return {
-      id: `${helmRelease.kind}-${helmRelease.getName()}`,
-      name: helmRelease.getName(),
+      id: `${object.kind}-${object.getName()}`,
+      name: object.getName(),
       value: 60,
-      color: this.colors[helmRelease.kind.toLowerCase() as "pod"],
+      color: this.colors[object.kind.toLowerCase() as "pod"],
       image: image,
       children: pods ? this.getChildrenPodsNodes(pods) : [],
       links: links,
-      tooltipHTML: this.getTooltipTemplate(helmRelease),
+      tooltipHTML: this.getTooltipTemplate(object),
     }
   }
 
-  getHelmReleaseChartNode(name: string, release: K8sApi.KubeObject): ChartDataSeries {
-    return {
+  getHelmReleaseChartNode(name: string, namespace: string): ChartDataSeries {
+    const existingRelease = this.helmData.find((item: ChartDataSeries) => {
+      return item.id == `HelmRelease-${name}`
+    })
+    if (existingRelease) {
+      return existingRelease
+    }
+    const release = new K8sApi.KubeObject({
+      kind: "HelmRelease",
+      apiVersion: "v1",
+      metadata: {
+        uid: `${namespace}-${name}`,
+        name,
+        namespace,
+        resourceVersion: "1",
+        selfLink: "",
+      }
+    });
+
+    const releaseData = {
       id: `HelmRelease-${name}`,
       name: name,
       image: this.icons.helm,
       value: 40,
       color: this.colors.helm,
-      links: [`Namespace-${release.getNs()}`],
+      links: [`Namespace-${namespace}`],
       tooltipHTML: this.getTooltipTemplate(release),
-    }
+    };
+
+    this.helmData.push(releaseData);
+    return releaseData;
   }
 
   getSecretChartNode(name: string, namespace: string): ChartDataSeries {
@@ -402,35 +443,30 @@ export class KubeResourceChart extends React.Component<{ id?: string }> {
           container.env?.forEach((env) => {
             const secretName = env.valueFrom?.secretKeyRef?.name;
             if (secretName) {
-              const secret: K8sApi.Secret = this.secretStore.items.find((item: K8sApi.Secret) => item.getName() == secretName && item.getNs() == pod.getNs());
-              if (secret) {
-                const dataItem = {
-                  id: `${secret.kind}-${secret.getName()}`,
-                  kind: secret.kind,
-                  name: secret.getName(),
-                  value: 40,
-                  color: this.colors.secret,
-                  image: this.icons.secret,
-                  tooltip: this.getTooltipTemplate(secret),
-                }
-                secretLinks.push(dataItem.id)
-                if (!this.secretsData.find((item: any) => {
-                  return item.id === dataItem.id
-                })) {
-                  this.secretsData.push(dataItem);
-                }
-              }
+              const dataItem = this.getSecretChartNode(secretName, pod.getNs())
+              secretLinks.push(dataItem.id)
+            }
+          })
+          const containerObject = new K8sApi.KubeObject({
+            kind: "PodContainer",
+            apiVersion: "v1",
+            metadata: {
+              uid: container.name,
+              name: container.name,
+              namespace: pod.getNs(),
+              resourceVersion: "1",
+              selfLink: pod.metadata.selfLink
             }
           })
           return {
             id: `${pod.kind}-${pod.getName()}-${container.name}`,
-            kind: "Container",
+            kind: containerObject.kind,
             name: container.name,
             image: this.icons.pod,
             value: 20,
             color: this.colors.container,
             links: secretLinks,
-            tooltipHTML: this.getTooltipTemplate(pod),
+            tooltipHTML: this.getTooltipTemplate(containerObject),
           }
         })
       }
