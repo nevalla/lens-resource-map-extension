@@ -7,7 +7,7 @@ import am4themes_dark from "@amcharts/amcharts4/themes/dark";
 import am4themes_animated from "@amcharts/amcharts4/themes/animated";
 import { Component, K8sApi } from "@k8slens/extensions";
 import { disposeOnUnmount, observer } from "mobx-react";
-import { autorun, observable } from "mobx";
+import { comparer, observable, reaction } from "mobx";
 
 am4core.useTheme(am4themes_dark);
 am4core.useTheme(am4themes_animated);
@@ -88,10 +88,13 @@ export class KubeResourceChart extends React.Component<KubeResourceChartProps> {
 
   async componentDidMount() {
     await this.loadData();
-
+    
     disposeOnUnmount(this, [
-      autorun(this.createChart, { delay: 1000 }),
-    ]);
+      reaction(() => this.props.selectedNamespaces, this.createChart, {
+        fireImmediately: true,
+        equals: comparer.identity,
+      })
+    ])
   }
 
   componentWillUnmount() {
