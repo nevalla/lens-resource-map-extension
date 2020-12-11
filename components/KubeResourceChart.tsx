@@ -29,10 +29,19 @@ export interface ChartDataSeries {
   tooltipHTML?: string;
 }
 
+export interface KubeResourceChartProps {
+  id?: string; // html-id to bind chart
+  selectedNamespaces?: string[];
+}
+
 @observer
-export class KubeResourceChart extends React.Component<{ id?: string, namespace?: string | string[] }> {
+export class KubeResourceChart extends React.Component<KubeResourceChartProps> {
   @observable static isReady = false;
-  @observable selectedNamespace: string | string[];
+
+  static defaultProps: KubeResourceChartProps = {
+    id: "kube-resource-map",
+    selectedNamespaces: [],
+  }
 
   static colors = {
     namespace: "#3d90ce",
@@ -61,7 +70,6 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
     secret: "https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/secret.svg",
   }
 
-  protected htmlId = this.props.id || "resource-map";
   protected icons = KubeResourceChart.icons
   protected colors = KubeResourceChart.colors
   protected chart: am4plugins_forceDirected.ForceDirectedTree;
@@ -79,21 +87,11 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
   protected ingressStore = K8sApi.apiManager.getStore(K8sApi.ingressApi) as K8sApi.IngressStore;
 
   async componentDidMount() {
-    const { namespace } = this.props;
+    await this.loadData();
 
-    this.selectedNamespace = namespace;
-
-    try {
-      await this.loadData();
-      this.createChart();
-
-    } catch (err) {
-      console.error("Oops, something went wrong", err);
-    }
-  }
-
-  componentDidUpdate() {
-    this.createChart()
+    disposeOnUnmount(this, [
+      autorun(this.createChart, { delay: 1000 }),
+    ]);
   }
 
   componentWillUnmount() {
@@ -147,15 +145,15 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
   }
 
   getChartDataSeries(): ChartDataSeries[] {
+    const { selectedNamespaces } = this.props;
     const {
       namespaceStore, podsStore, serviceStore,
       deploymentStore, daemonsetStore, statefulsetStore,
       ingressStore, pvcStore,
     } = this;
+
     this.secretsData = [];
     this.helmData = [];
-
-    const selectedNamespace = this.props.namespace != "" ? this.props.namespace : []
 
     /*const namespacesData: ChartDataSeries = {
       id: "namespaces",
@@ -177,7 +175,7 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
     };
     */
 
-    const serviceData: ChartDataSeries[] = serviceStore.getAllByNs(selectedNamespace).map((service: K8sApi.Service) => {
+    const serviceData: ChartDataSeries[] = serviceStore.getAllByNs(selectedNamespaces).map((service: K8sApi.Service) => {
       const selector = service.spec.selector;
       let podLinks: string[] = []
       if (selector) {
@@ -205,7 +203,7 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
       };
     })
 
-    const pvcData: ChartDataSeries[] = pvcStore.getAllByNs(selectedNamespace).map((pvc: K8sApi.PersistentVolumeClaim) => {
+    const pvcData: ChartDataSeries[] = pvcStore.getAllByNs(selectedNamespaces).map((pvc: K8sApi.PersistentVolumeClaim) => {
       return {
         id: `${pvc.kind}-${pvc.getName()}`,
         name: pvc.getName(),
@@ -216,7 +214,7 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
       }
     })
 
-    const ingressData: ChartDataSeries[] = ingressStore.getAllByNs(selectedNamespace).map((ingress: K8sApi.Ingress) => {
+    const ingressData: ChartDataSeries[] = ingressStore.getAllByNs(selectedNamespaces).map((ingress: K8sApi.Ingress) => {
       const secretLinks: string[] = []
       const serviceLinks: string[] = []
       ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
@@ -249,18 +247,17 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
       }
     })
 
-
-    const deploymentData: ChartDataSeries[] = deploymentStore.getAllByNs(selectedNamespace).map((deployment: K8sApi.Deployment) => {
+    const deploymentData: ChartDataSeries[] = deploymentStore.getAllByNs(selectedNamespaces).map((deployment: K8sApi.Deployment) => {
       const pods = deploymentStore.getChildPods(deployment)
       return this.getControllerChartNode(deployment, this.icons.deployment, pods)
     });
 
-    const statefulsetData: ChartDataSeries[] = statefulsetStore.getAllByNs(selectedNamespace).map((statefulset: K8sApi.StatefulSet) => {
+    const statefulsetData: ChartDataSeries[] = statefulsetStore.getAllByNs(selectedNamespaces).map((statefulset: K8sApi.StatefulSet) => {
       const pods = statefulsetStore.getChildPods(statefulset)
       return this.getControllerChartNode(statefulset, this.icons.statefulset, pods)
     });
 
-    const daemonsetData: ChartDataSeries[] = daemonsetStore.getAllByNs(selectedNamespace).map((daemonset: K8sApi.DaemonSet) => {
+    const daemonsetData: ChartDataSeries[] = daemonsetStore.getAllByNs(selectedNamespaces).map((daemonset: K8sApi.DaemonSet) => {
       const pods = daemonsetStore.getChildPods(daemonset)
       return this.getControllerChartNode(daemonset, this.icons.daemonset, pods)
     });
@@ -277,13 +274,13 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
     ].flat()
   }
 
-  protected createChart() {
+  createChart = () => {
     if (this.chart) {
       this.destroyChart();
     }
 
     // Create chart
-    const chart = am4core.create(this.htmlId, am4plugins_forceDirected.ForceDirectedTree);
+    const chart = am4core.create(this.props.id, am4plugins_forceDirected.ForceDirectedTree);
 
     chart.zoomable = true;
     // Create series
@@ -476,7 +473,7 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
 
   render() {
     return (
-      <div id={this.htmlId} className="KubeResourceChart flex center">
+      <div id={this.props.id} className="KubeResourceChart flex center">
         {!KubeResourceChart.isReady && <Component.Spinner/>}
       </div>
     );

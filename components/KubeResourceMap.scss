@@ -1,8 +1,9 @@
 .KubeResourceMap {
   padding: calc(var(--padding) * 2);
 
-  h2 {
-    border-bottom: 1px solid;
+  header {
+    padding: var(--padding);
+    border-bottom: 1px solid currentColor;
   }
 
   main {
@@ -18,6 +19,10 @@
     text-align: center;
     font-size: 110%;
     color: var(--textColorSecondary);
+  }
+
+  .resource {
+    border-right: 10px solid var(--color, transparent);
   }
 
   .resource-icon {
