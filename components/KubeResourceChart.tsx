@@ -79,15 +79,11 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
   protected ingressStore = K8sApi.apiManager.getStore(K8sApi.ingressApi) as K8sApi.IngressStore;
 
   async componentDidMount() {
-    disposeOnUnmount(this, [
-      autorun(() => {
-        const { namespace } = this.props;
+    const { namespace } = this.props;
+    if (namespace) {
+      this.selectedNamespace = namespace; // refresh
+    }
 
-        if (namespace) {
-          this.selectedNamespace = namespace; // refresh
-        }
-      })
-    ]);
     try {
       await this.loadData();
       this.createChart();
@@ -98,7 +94,6 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
   }
 
   componentDidUpdate() {
-    console.log("Compoment update")
     this.createChart()
   }
 
