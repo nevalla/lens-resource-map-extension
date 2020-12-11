@@ -342,6 +342,11 @@ export class KubeResourceChart extends React.Component<{ id?: string, namespace?
       const release = this.getHelmReleaseChartNode(releaseName, object.getNs())
       links.push(release.id)
     }
+    if (object.metadata?.labels && object.metadata?.annotations && object.metadata?.labels["app.kubernetes.io/managed-by"] == "Helm" && object.metadata?.annotations["meta.helm.sh/release-name"] == "wordpress") {
+      const releaseName = object.metadata.annotations["meta.helm.sh/release-name"]
+      const release = this.getHelmReleaseChartNode(releaseName, object.getNs())
+      links.push(release.id)
+    }
     return {
       id: `${object.kind}-${object.getName()}`,
       name: object.getName(),
