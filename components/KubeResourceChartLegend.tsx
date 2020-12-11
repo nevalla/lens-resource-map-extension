@@ -1,14 +1,20 @@
-import "./KubeResourceMap.scss"
+import "./KubeResourceChartLegend.scss"
 import React from "react";
-import { Component } from "@k8slens/extensions";
 import { KubeResourceChart } from "./KubeResourceChart"
 import { observer } from "mobx-react";
-import { NamespaceSelect, selectedNamespaces } from "./NamespaceSelect";
+
+interface Props {
+  iconSize?: number;
+}
 
 @observer
-export class KubeResourceMap extends React.Component {
-  renderChartLegend() {
-    const iconSize = 32;
+export class KubeResourceChartLegend extends React.Component<Props> {
+  static defaultProps: Props = {
+    iconSize: 32,
+  };
+
+  render() {
+    const { iconSize } = this.props;
     return (
       <div className="KubeResourceChartLegend flex column">
         <p className="title">Legend:</p>
@@ -24,21 +30,6 @@ export class KubeResourceMap extends React.Component {
           )
         })}
       </div>
-    )
-  }
-
-  render() {
-    return (
-      <Component.TabLayout className="KubeResourceMap">
-        <header className="flex gaps align-center">
-          <h2 className="flex gaps align-center">
-            <span>Resource Map</span>
-            <Component.Icon material="info" tooltip={this.renderChartLegend()}/>
-          </h2>
-          <NamespaceSelect className="box right"/>
-        </header>
-        <KubeResourceChart selectedNamespaces={Array.from(selectedNamespaces)}/>
-      </Component.TabLayout>
     );
   }
 }
