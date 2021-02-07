@@ -1,0 +1,49 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  NODE_VERSION: '12.x'
+
+jobs:
+  release:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies and build extension
+        run: |
+          npm ci
+          npm run build
+      - name: Create tarball from package
+        run: npm pack
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: true
+      - name: Get release tag from git revision
+        run: |
+          GITHUB_REF=${{ github.ref }}
+          GITHUB_TAG=${GITHUB_REF#refs/tags/v}
+          echo "$GITHUB_REF -> $GITHUB_TAG"
+          echo "GITHUB_TAG=$GITHUB_TAG" >> $GITHUB_ENV
+      - name: Upload GitHub assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: nevalla-lens-resource-map-extension-${{ env.GITHUB_TAG }}.tgz
+          asset_name: nevalla-lens-resource-map-extension-${{ env.GITHUB_TAG }}.tgz
+          asset_content_type: application/octet-stream
