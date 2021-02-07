@@ -1,16 +1,3 @@
-.KubeResourceMap {
-  padding: calc(var(--padding) * 2);
-
-  header {
-    padding: var(--padding);
-    border-bottom: 1px solid currentColor;
-  }
-
-  main {
-    overflow: hidden;
-  }
-}
-
 .KubeResourceChartLegend {
   padding: var(--padding);
   background: var(--layoutBackground);
