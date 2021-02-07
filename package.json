@@ -1,9 +1,8 @@
 {
-	"name": "kube-resource-map",
+	"name": "@nevalla/kube-resource-map",
 	"version": "0.0.1",
-	"description": "Map of Kubernetes resource relations",
-	"publisher": "@k8slens/kube-resource-map",
-	"main": "dist/main.js",
+	"description": "Map of Kubernetes resources and their relations",
+	"publisher": "Lauri Nevala",
 	"renderer": "dist/renderer.js",
 	"engines": {
 		"node": ">=12.0 <13.0"
@@ -13,6 +12,9 @@
 		"extension",
 		"k8slens",
 		"kubernetes"
+	],
+	"files": [
+		"dist/"
 	],
 	"scripts": {
 		"start": "webpack --watch",
@@ -33,23 +35,25 @@
 		"react-dom": "^17.0.1"
 	},
 	"devDependencies": {
-		"@amcharts/amcharts4": "^4.10.12",
 		"@jest-runner/electron": "^3.0.0",
-		"@k8slens/extensions": "^4.0.1",
+		"@k8slens/extensions": "4.0.8",
 		"@testing-library/jest-dom": "^5.11.6",
 		"@testing-library/react": "^11.2.2",
+		"@types/d3-force": "^2.1.0",
 		"@types/jest": "^26.0.15",
 		"@types/node": "^12.12.9",
 		"@types/react": "^17.0.0",
 		"@typescript-eslint/eslint-plugin": "^4.8.1",
 		"@typescript-eslint/parser": "^4.8.1",
 		"css-loader": "^5.0.1",
+		"d3-force": "^2.1.1",
 		"electron": "^11.0.3",
 		"jest": "^26.6.3",
 		"mobx": "^5.15.7",
 		"mobx-react": "^6.2.2",
 		"node-sass": "^5.0.0",
 		"react": "^17.0.1",
+		"react-force-graph": "1.37.5",
 		"sass-loader": "^10.1.0",
 		"style-loader": "^2.0.0",
 		"ts-loader": "^8.0.11",

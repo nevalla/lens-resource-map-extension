@@ -1,0 +1,58 @@
+.KubeForceChart {
+  width: 100%;
+  height: 100%;
+  background-color: #1e2124;
+}
+
+#KubeForceChart-tooltip {
+  display: none;
+}
+
+.graph-tooltip {
+  background: rgba(0,0,0,0.8);
+  max-width: 400px;
+  min-width: 400px;
+}
+
+.KubeResourceChartTooltip {
+  padding: 3px;
+  font-size: 14px;
+
+  .DrawerItem {
+    .name, .value {
+      color: whitesmoke
+    }
+  }
+  .running {
+    color: var(--colorOk);
+  }
+
+  .succeeded {
+    color: var(--colorOk);
+  }
+
+  .failed {
+    color: var(--colorError);
+  }
+
+  .pending, .containercreating {
+    color: var(--colorWarning);
+  }
+
+  .terminated, .terminating {
+    color: var(--colorTerminated);
+  }
+
+  .StatusBrick.running:not(.ready) {
+    background: var(--colorWarning);
+  }
+  .StatusBrick.terminated, .StatusBrick.completed {
+    color: white;
+    background: var(--colorTerminated);
+  }
+
+  .StatusBrick.pending, .StatusBrick.containercreating, .StatusBrick.waiting {
+    color: white;
+    background: var(--colorWarning);
+  }
+}

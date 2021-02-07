@@ -1,13 +1,13 @@
 /* eslint @typescript-eslint/no-var-requires: "off" */
 
 const path = require("path");
-
+const mode = process.env.NODE_ENV || "production"
 module.exports = [
   {
     entry: "./renderer.tsx",
     context: __dirname,
     target: "electron-renderer",
-    mode: "production",
+    mode,
     module: {
       rules: [
         {

@@ -1,24 +1,24 @@
 import "./KubeResourceMap.scss"
 import React from "react";
-import { Component } from "@k8slens/extensions";
-import { KubeResourceChart } from "./KubeResourceChart"
+import { Component, K8sApi } from "@k8slens/extensions";
+import { KubeForceChart } from "./KubeForceChart"
 import { observer } from "mobx-react";
 import { NamespaceSelect, selectedNamespaces } from "./NamespaceSelect";
 
 @observer
 export class KubeResourceMap extends React.Component {
+
   renderChartLegend() {
     const iconSize = 32;
     return (
       <div className="KubeResourceChartLegend flex column">
         <p className="title">Legend:</p>
-        {Object.entries(KubeResourceChart.icons).map(([kind, iconSrc]) => {
-          const resource = kind[0].toUpperCase() + kind.substr(1);
-          const color = KubeResourceChart.colors[kind as "pod"];
-          const style = { "--color": color } as React.CSSProperties;
+        {Object.entries(KubeForceChart.config).map(([kind, configItem]) => {
+          const resource = kind;
+          const style = { "--color": configItem.color } as React.CSSProperties;
           return (
             <div key={kind} className="resource flex gaps align-center" style={style}>
-              <img className="resource-icon" src={iconSrc} width={iconSize} height={iconSize} alt={kind}/>
+              <img className="resource-icon" src={configItem.icon} width={iconSize} height={iconSize} alt={kind}/>
               <span className="resource-kind">{resource}</span>
             </div>
           )
@@ -37,7 +37,8 @@ export class KubeResourceMap extends React.Component {
           </h2>
           <NamespaceSelect className="box right"/>
         </header>
-        <KubeResourceChart selectedNamespaces={Array.from(selectedNamespaces)}/>
+        <div id="KubeForceChart-tooltip" />
+        <KubeForceChart selectedNamespaces={Array.from(selectedNamespaces)}/>
       </Component.TabLayout>
     );
   }
