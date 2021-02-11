@@ -9,18 +9,25 @@
 }
 
 .graph-tooltip {
-  background: rgba(0,0,0,0.8);
+  background: rgb(30, 33, 36) !important;
+  border: 1px solid #4c5053;
+  border-radius: 3px;
   max-width: 400px;
   min-width: 400px;
+  color: rgb(160, 160, 160);
+  font-size: small;
+  font-weight: normal;
+  transition: opacity 150ms 25ms ease-in-out;
 }
 
 .KubeResourceChartTooltip {
   padding: 3px;
   font-size: 14px;
+  color: rgb(160, 160, 160);
 
   .DrawerItem {
     .name, .value {
-      color: whitesmoke
+      color: rgb(160, 160, 160);
     }
   }
   .running {
