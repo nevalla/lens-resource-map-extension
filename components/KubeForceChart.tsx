@@ -1,16 +1,17 @@
 import "./KubeForceChart.scss";
-import { K8sApi, Navigation, Component, Util } from "@k8slens/extensions";
+import { K8sApi, Navigation, Component } from "@k8slens/extensions";
 import { comparer, observable, reaction } from "mobx";
 import { disposeOnUnmount, observer } from "mobx-react";
 import React, { createRef, Fragment, MutableRefObject } from "react";
 import { ForceGraph2D} from 'react-force-graph';
-import * as d3 from "d3-force"
+import * as d3 from "d3-force";
 import ReactDOM from "react-dom";
 import { PodTooltip} from "./PodTooltip";
 import { ServiceTooltip} from "./ServiceTooltip";
 import { ControllerTooltip} from "./ControllerTooltip";
 import { DefaultTooltip} from "./DefaultTooltip";
 
+const d33d = require("d3-force-3d");
 
 type NodeObject = object & {
   id?: string | number;
@@ -209,7 +210,7 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     const fg = this.chartRef.current;
     fg.zoom(1.3, 1000);
     fg.d3Force('link').strength(.5).distance(() => 80)
-    fg.d3Force('charge', d3.forceManyBody().strength(-60).distanceMax(250)); // -12
+    fg.d3Force('charge', d33d.forceManyBody().strength(-60).distanceMax(250)); // -12
     fg.d3Force('collide', d3.forceCollide(20));
     fg.d3Force("center", d3.forceCenter());
 
@@ -228,7 +229,6 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
       reaction(() => this.ingressStore.items.toJSON(), () => { this.refreshItems(this.ingressStore) }, reactionOpts),
       reaction(() => this.configMapStore.items.toJSON(), () => { this.refreshItems(this.configMapStore) }, reactionOpts)
     ])
-
   }
 
   namespaceChanged = () => {
@@ -271,7 +271,7 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     this.unsubscribeStores();
   }
 
-  protected refreshItems(store: K8sApi.KubeObjectStore) {
+  protected async refreshItems(store: K8sApi.KubeObjectStore) {
     // remove deleted objects
     this.nodes.filter(node => node.kind == store.api.kind).forEach(node => {
       if (!store.items.includes(node.object as K8sApi.KubeObject)) {
@@ -674,7 +674,6 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
   }
 
   render() {
-    console.log("render", KubeForceChart.isReady)
     if (!KubeForceChart.isReady) {
       return (
         <Component.Spinner />
