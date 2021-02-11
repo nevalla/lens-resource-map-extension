@@ -18,7 +18,7 @@ export class DefaultTooltip extends React.Component<DefaultTooltipProps> {
           {obj.getNs()}
         </Component.DrawerItem>
         <Component.DrawerItem name="Created">
-           {obj.getAge()} ago
+           { obj.metadata.creationTimestamp && `${obj.getAge()} ago`}
         </Component.DrawerItem>
       </div>
     )
