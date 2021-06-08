@@ -10,3 +10,23 @@
     overflow: hidden;
   }
 }
+
+.ResourceMapOverviewDetail {
+  position: relative;
+  width: 100%;
+  min-width: calc(var(--unit) * 75);
+  background: var(--contentColor);
+
+  > .header {
+    position: relative;
+    padding: calc(var(--padding) * 2);
+
+    h5 {
+      color: var(--textColorPrimary);
+    }
+  }
+
+  > .content {
+    margin: 0 calc(var(--unit)*2) calc(var(--unit)*2) calc(var(--unit)*2)
+  }
+}

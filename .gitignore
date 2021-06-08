@@ -5,3 +5,4 @@ node_modules
 lens.log
 .DS_Store
 *.tgz
+*.bak

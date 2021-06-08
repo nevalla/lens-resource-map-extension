@@ -1,28 +1,36 @@
 .KubeForceChart {
   width: 100%;
   height: 100%;
-  background-color: #1e2124;
 }
 
 #KubeForceChart-tooltip {
   display: none;
 }
 
+.force-graph-container {
+  background-color: var(--secondaryBackground);
+}
+
 .graph-tooltip {
-  background: rgb(30, 33, 36) !important;
-  border: 1px solid #4c5053;
+  background: var(--tooltipBackground) !important;
+  border: 1px solid var(--borderColor);
   border-radius: 3px;
   max-width: 400px;
-  min-width: 400px;
-  color: rgb(160, 160, 160);
+  min-width: 300px;
+  color: var(--textColorPrimary);
   font-size: small;
   font-weight: normal;
   transition: opacity 150ms 25ms ease-in-out;
+  z-index: 10;
+}
+
+.ingress-tooltip {
+  min-width: 400px;
 }
 
 .KubeResourceChartTooltip {
   padding: 3px;
-  font-size: 14px;
+  font-size: 12px !important;
   color: rgb(160, 160, 160);
 
   .DrawerItem {
@@ -30,6 +38,26 @@
       color: rgb(160, 160, 160);
     }
   }
+
+  .conditions {
+    .Badge {
+      &.available {
+        color: white;
+        background-color: var(--colorOk);
+      }
+
+      &.progressing {
+        color: white;
+        background-color: var(--colorInfo);
+      }
+
+      &.replica-failure {
+        color: white;
+        background-color: var(--colorError);
+      }
+    }
+  }
+
   .running {
     color: var(--colorOk);
   }
@@ -61,5 +89,22 @@
   .StatusBrick.pending, .StatusBrick.containercreating, .StatusBrick.waiting {
     color: white;
     background: var(--colorWarning);
+  }
+
+  .rules {
+    margin-top: 2px;
+    margin-bottom: 16px;
+  }
+
+  .host-title {
+    font-weight: bold;
+  }
+
+  .Table {
+    .path {
+      &:empty:after {
+        content: '\2014';
+      }
+    }
   }
 }
