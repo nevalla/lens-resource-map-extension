@@ -1,8 +1,8 @@
-import { Component, K8sApi, Util,} from "@k8slens/extensions";
+import { Common, Renderer,} from "@k8slens/extensions";
 import React from "react";
 
 export interface ServiceTooltipProps {
-  obj: K8sApi.Service;
+  obj: Renderer.K8sApi.Service;
 }
 
 export class ServiceTooltip extends React.Component<ServiceTooltipProps> {
@@ -14,34 +14,34 @@ export class ServiceTooltip extends React.Component<ServiceTooltipProps> {
           <b>{obj.kind} - {obj.getName()}</b>
         </div>
         <hr/>
-        <Component.DrawerItem name="Namespace">
+        <Renderer.Component.DrawerItem name="Namespace">
           {obj.getNs()}
-        </Component.DrawerItem>
-        <Component.DrawerItem name="Created">
+        </Renderer.Component.DrawerItem>
+        <Renderer.Component.DrawerItem name="Created">
            {obj.getAge()} ago
-        </Component.DrawerItem>
-        <Component.DrawerItem name="Selector" labelsOnly>
+        </Renderer.Component.DrawerItem>
+        <Renderer.Component.DrawerItem name="Selector" labelsOnly>
           {obj.getSelector().map(selector => {
             return (
               <div key={selector}>
-                <Component.Badge key={selector} label={selector}/>
+                <Renderer.Component.Badge key={selector} label={selector}/>
               </div>
             )
           })
           }
-        </Component.DrawerItem>
+        </Renderer.Component.DrawerItem>
 
       </div>
     )
   }
 
-  renderContainersStatus(pod: K8sApi.Pod) {
+  renderContainersStatus(pod: Renderer.K8sApi.Pod) {
     return pod.getContainerStatuses().map(containerStatus => {
       const { name, state, ready } = containerStatus;
 
       return (
         <div key={name}>
-          <Component.StatusBrick className={Util.cssNames(state, { ready })}/> {name}
+          <Renderer.Component.StatusBrick className={Common.Util.cssNames(state, { ready })}/> {name}
         </div>
       );
     });

@@ -1,8 +1,8 @@
-import { Component, K8sApi, Util,} from "@k8slens/extensions";
+import { Renderer, Common } from "@k8slens/extensions";
 import React from "react";
 
 export interface DefaultTooltipProps {
-  obj: K8sApi.KubeObject;
+  obj: Renderer.K8sApi.KubeObject;
 }
 
 export class DefaultTooltip extends React.Component<DefaultTooltipProps> {
@@ -14,23 +14,23 @@ export class DefaultTooltip extends React.Component<DefaultTooltipProps> {
           <b>{obj.kind} - {obj.getName()}</b>
         </div>
         <hr/>
-        <Component.DrawerItem name="Namespace">
+        <Renderer.Component.DrawerItem name="Namespace">
           {obj.getNs()}
-        </Component.DrawerItem>
-        <Component.DrawerItem name="Created">
+        </Renderer.Component.DrawerItem>
+        <Renderer.Component.DrawerItem name="Created">
            { obj.metadata.creationTimestamp && `${obj.getAge()} ago`}
-        </Component.DrawerItem>
+        </Renderer.Component.DrawerItem>
       </div>
     )
   }
 
-  renderContainersStatus(pod: K8sApi.Pod) {
-    return pod.getContainerStatuses().map(containerStatus => {
+  renderContainersStatus(pod: Renderer.K8sApi.Pod) {
+    return pod.getContainerStatuses().map((containerStatus: Renderer.K8sApi.IPodContainerStatus) => {
       const { name, state, ready } = containerStatus;
 
       return (
         <div key={name}>
-          <Component.StatusBrick className={Util.cssNames(state, { ready })}/> {name}
+          <Renderer.Component.StatusBrick className={Common.Util.cssNames(state, { ready })}/> {name}
         </div>
       );
     });

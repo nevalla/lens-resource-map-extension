@@ -1,22 +1,22 @@
 import "./KubeForceChart.scss";
-import { Renderer } from "@k8slens/extensions";
-import { comparer, makeObservable, observable, reaction } from "mobx";
+import { Common, Renderer } from "@k8slens/extensions";
+import { comparer, observable, reaction, values } from "mobx";
 import { disposeOnUnmount, observer } from "mobx-react";
 import React, { createRef, Fragment, MutableRefObject } from "react";
 import { ForceGraph2D} from 'react-force-graph';
 import * as d3 from "d3-force";
 import ReactDOM from "react-dom";
-import { PodTooltip, ServiceTooltip, DeploymentTooltip, StatefulsetTooltip, DefaultTooltip} from "./tooltips";
-import { ChartDataSeries, LinkObject, NodeObject } from "./helpers/types";
+import { PodTooltip, ServiceTooltip, DeploymentTooltip, StatefulsetTooltip, DefaultTooltip, IngressTooltip} from "./tooltips";
 import { config } from "./helpers/config";
+import { ChartDataSeries, LinkObject, NodeObject } from "./helpers/types";
+import { KubeObject } from "@k8slens/extensions/dist/src/renderer/api/kube-object";
+
 
 const d33d = require("d3-force-3d");
 
-export interface KubeForceChartProps {
+export interface KubeResourceChartProps {
   id?: string; // html-id to bind chart
-  width?: number;
-  height?: number;
-  widthRef?: string;
+  object?: Renderer.K8sApi.KubeObject;
 }
 
 interface State {
@@ -29,30 +29,28 @@ interface State {
 }
 
 @observer
-export class KubeForceChart extends React.Component<KubeForceChartProps, State> {
-  @observable static  isReady = false;
+export class KubeResourceChart extends React.Component<KubeResourceChartProps, State> {
+  @observable static isReady = false;
   @observable isUnmounting = false;
   @observable data: State;
 
-  static defaultProps: KubeForceChartProps = {
-    id: "kube-resources-map"
+  static defaultProps: KubeResourceChartProps = {
+    id: "kube-resource-map"
   }
-
-  static config = config;
 
   protected links: LinkObject[] = [];
   protected nodes: ChartDataSeries[] = [];
   protected highlightLinks: Set<LinkObject> = new Set<LinkObject>();
+  protected initZoomDone = false;
 
 
   protected images: {[key: string]: HTMLImageElement; } = {}
-  protected config = KubeForceChart.config
+  protected config = config;
   private chartRef: MutableRefObject<any>;
   protected secretsData: any = [];
   protected configMapsData: any = [];
   protected helmData: any = [];
 
-  protected namespaceStore = (Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.namespacesApi) as unknown) as Renderer.K8sApi.NamespaceStore;
   protected podsStore = Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.podsApi) as Renderer.K8sApi.PodsStore;
   protected deploymentStore = Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.deploymentApi) as Renderer.K8sApi.DeploymentStore;
   protected statefulsetStore = Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.statefulSetApi) as Renderer.K8sApi.StatefulSetStore;
@@ -63,8 +61,10 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
   protected ingressStore =  Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.ingressApi) as Renderer.K8sApi.IngressStore;
   protected configMapStore = Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.configMapApi) as Renderer.K8sApi.ConfigMapsStore;
 
-  private kubeObjectStores: Renderer.K8sApi.KubeObjectStore[] = []
+  protected kubeObjectStores: Renderer.K8sApi.KubeObjectStore[] = []
   private watchDisposers: Function[] = [];
+
+  private disposers: Function[] = [];
 
   state: Readonly<State> = {
     data: {
@@ -74,82 +74,88 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     highlightLinks: new Set<LinkObject>()
   }
 
-  initZoomDone: boolean = false;
-
-  constructor(props: KubeForceChartProps) {
-    super(props);
-
-    makeObservable(this);
+  constructor(props: KubeResourceChartProps) {
+    super(props)
     this.chartRef = createRef();
     this.generateImages();
   }
 
   async componentDidMount() {
-    this.setState(this.state)
+    this.setState(this.state);
+
+    this.registerStores();
+
+    await this.loadData();
+
+    this.displayChart();
+
+    const fg = this.chartRef.current;
+    //fg?.zoom(1.2, 1000);
+    fg?.d3Force('link').strength(2).distance(() => 60)
+    fg?.d3Force('charge', d33d.forceManyBody().strength(-60).distanceMax(250));
+    fg?.d3Force('collide', d3.forceCollide(40));
+    fg?.d3Force("center", d3.forceCenter());
+
+    const reactionOpts = {
+      equals: comparer.structural,
+    }
+
+    const { object } = this.props
+    const api = Renderer.K8sApi.apiManager.getApiByKind(object.kind, object.apiVersion);
+    const store = Renderer.K8sApi.apiManager.getStore(api);
+
+
+    this.disposers.push(reaction(() => this.props.object, (value, prev, _reaction) => { value.getId() !== prev.getId() ? this.displayChart() : this.refreshChart() }));
+    this.disposers.push(reaction(() => this.podsStore.items.toJSON(), (values, previousValue, _reaction) => { this.refreshItems(values, previousValue) }, reactionOpts));
+    this.disposers.push(reaction(() => store.items.toJSON(), (values, previousValue, _reaction) => { this.refreshItems(values, previousValue) }, reactionOpts));
+  }
+
+  registerStores() {
+    const object = this.props.object;
+
     this.kubeObjectStores = [
       this.podsStore,
-      this.deploymentStore,
-      this.statefulsetStore,
-      this.daemonsetStore,
       this.serviceStore,
       this.ingressStore,
       this.pvcStore,
       this.configMapStore,
       this.secretStore,
     ]
-    await this.loadData();
-
-    this.displayChart();
-
-    const fg = this.chartRef.current;
-    fg.zoom(1.3, 1000);
-
-    fg?.d3Force('link').strength(1.3).distance(() => 60)
-    fg?.d3Force('charge', d33d.forceManyBody().strength(-60).distanceMax(250));
-    fg?.d3Force('collide', d3.forceCollide(40));
-    fg?.d3Force("center", d3.forceCenter());
-    const reactionOpts = {
-      equals: comparer.structural,
-    }
-    disposeOnUnmount(this, [
-      reaction(() => this.namespaceStore.selectedNamespaces, this.namespaceChanged, reactionOpts),
-      reaction(() => this.podsStore.items.toJSON(), () => { this.refreshItems(this.podsStore) }, reactionOpts),
-      reaction(() => this.daemonsetStore.items.toJSON(), () => { this.refreshItems(this.daemonsetStore) }, reactionOpts),
-      reaction(() => this.statefulsetStore.items.toJSON(), () => { this.refreshItems(this.statefulsetStore) }, reactionOpts),
-      reaction(() => this.deploymentStore.items.toJSON(), () => { this.refreshItems(this.deploymentStore) }, reactionOpts),
-      reaction(() => this.serviceStore.items.toJSON(), () => { this.refreshItems(this.serviceStore) }, reactionOpts),
-      reaction(() => this.secretStore.items.toJSON(), () => { this.refreshItems(this.secretStore) }, reactionOpts),
-      reaction(() => this.pvcStore.items.toJSON(), () => { this.refreshItems(this.pvcStore) }, reactionOpts),
-      reaction(() => this.ingressStore.items.toJSON(), () => { this.refreshItems(this.ingressStore) }, reactionOpts),
-      reaction(() => this.configMapStore.items.toJSON(), () => { this.refreshItems(this.configMapStore) }, reactionOpts)
-    ])
-  }
-
-  namespaceChanged = () => {
-    if (KubeForceChart.isReady) {
-      this.displayChart();
+    if (object instanceof Renderer.K8sApi.Deployment) {
+      this.kubeObjectStores.push(this.deploymentStore);
+    } else if (object instanceof Renderer.K8sApi.DaemonSet) {
+      this.kubeObjectStores.push(this.daemonsetStore);
+    } else if (object instanceof Renderer.K8sApi.StatefulSet) {
+      this.kubeObjectStores.push(this.statefulsetStore);
     }
   }
 
   displayChart = () => {
+    console.log("displayChart");
+    this.initZoomDone = false;
     this.nodes = [];
     this.links = [];
-    this.initZoomDone = false;
+    this.generateChartDataSeries();
+  }
+
+  refreshChart = () => {
+    console.log("refreshChart");
     this.generateChartDataSeries();
   }
 
   getLinksForNode(node: ChartDataSeries): LinkObject[] {
-    return this.links.filter((link) => link.source == node || link.target == node )
+    return this.links.filter((link) => link.source == node.id || link.target == node.id || (link.source as NodeObject).id == node.id || (link.target as NodeObject).id == node.id )
   }
 
   handleNodeHover(node: ChartDataSeries) {
     const highlightLinks = new Set<LinkObject>();
     const elem = document.getElementById(this.props.id);
-    elem.style.cursor = node ? 'pointer' : null
+    elem.style.cursor = node ? 'pointer' : null;
     if (node) {
-      this.getLinksForNode(node).forEach(link => highlightLinks.add(link));
+      const links = this.getLinksForNode(node);
+      links.forEach(link => highlightLinks.add(link));
     }
-    this.setState({ highlightLinks: highlightLinks, hoverNode: node})
+    this.setState({ highlightLinks, hoverNode: node})
   }
 
   generateImages() {
@@ -162,26 +168,31 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
 
   componentWillUnmount() {
     this.isUnmounting = true;
+    this.nodes = [];
+    this.links = [];
     this.unsubscribeStores();
+
+    this.disposers.forEach((disposer) => disposer())
   }
 
-  protected refreshItems(store: Renderer.K8sApi.KubeObjectStore) {
-    // remove deleted objects
-    this.nodes.filter(node => node.kind == store.api.kind).forEach(node => {
-      if (!store.items.includes(node.object as Renderer.K8sApi.KubeObject)) {
-        if (["DaemonSet", "StatefulSet", "Deployment"].includes(node.kind)) {
-          const helmReleaseName = this.getHelmReleaseName(node.object)
-          if (helmReleaseName) {
-            const helmReleaseNode = this.getHelmReleaseChartNode(helmReleaseName, node.namespace)
-            if (this.getLinksForNode(helmReleaseNode).length === 1) {
-              this.deleteNode({ node: helmReleaseNode })
-            }
+  protected refreshItems(newValues: any, previousValues: KubeObject[] = []) {
+    const newItems = Array.from(newValues);
+    const itemsToRemove = previousValues.filter((item) => !newItems.find((item2: Renderer.K8sApi.KubeObject) => item.getId() === item2.getId()));
+
+    itemsToRemove.forEach((object) => {
+      if (["DaemonSet", "StatefulSet", "Deployment"].includes(object.kind)) {
+        const helmReleaseName = this.getHelmReleaseName(object)
+        if (helmReleaseName) {
+          const helmReleaseNode = this.getHelmReleaseChartNode(helmReleaseName, object.getNs())
+          if (this.getLinksForNode(helmReleaseNode).length === 1) {
+            this.deleteNode({ node: helmReleaseNode })
           }
         }
-        this.deleteNode(node);
       }
+      this.deleteNode({ object })
     })
-    this.generateChartDataSeries()
+
+    this.generateChartDataSeries();
   }
 
   protected unsubscribeStores() {
@@ -202,146 +213,81 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
         console.error("loading store error", error);
       }
     }
-    KubeForceChart.isReady = true;
+    KubeResourceChart.isReady = true;
   }
 
   generateChartDataSeries = () => {
     const nodes = [...this.nodes];
     const links = [...this.links];
 
-    this.generateSecrets();
-    this.generateVolumeClaims();
-    this.generateDeployments();
-    this.generateStatefulSets();
-    this.generateDaemonSets();
-    this.generatePods();
-    this.generateServices();
+    this.generateControllerNode(this.props.object);
     this.generateIngresses();
 
-    if (!nodes.length || nodes.length != this.nodes.length || links.length != this.links.length) { // TODO: Improve the logic
-      this.setState({
-        data: {
-          nodes: this.nodes,
-          links: this.links,
-        },
-        highlightLinks: new Set<LinkObject>()
-      })
+    if (nodes.length != this.nodes.length || links.length != this.links.length) { // TODO: Improve the logic
+      console.log("updateState")
+      this.updateState(this.nodes, this.links);
+    }
+  }
+
+  protected updateState(nodes: ChartDataSeries[], links: LinkObject[]) {
+    this.setState({
+      data: {
+        nodes: nodes,
+        links: links,
+      },
+      highlightLinks: new Set<LinkObject>()
+    })
+  }
+
+  protected generateControllerNode(object: KubeObject) {
+    let pods: Renderer.K8sApi.Pod[] = [];
+    if (object instanceof Renderer.K8sApi.Deployment) {
+      pods = this.getDeploymentPods(object as Renderer.K8sApi.Deployment);
+    } else if (object instanceof Renderer.K8sApi.DaemonSet) {
+      pods = this.getDaemonSetPods(object);
+    } else if (object instanceof Renderer.K8sApi.StatefulSet) {
+      pods = this.getStatefulSetPods(object);
     }
 
+    this.getControllerChartNode(object, pods);
+    this.generateServices(pods);
   }
 
-  protected generatePods() {
-    const { podsStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
-    podsStore.getAllByNs(selectedNamespaces).map((pod: Renderer.K8sApi.Pod) => {
-      this.getPodNode(pod);
-    });
-  }
-
-  protected generateDeployments() {
+  protected getDeploymentPods(deployment: Renderer.K8sApi.Deployment) {
     const { deploymentStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
 
-    deploymentStore.getAllByNs(selectedNamespaces).map((deployment: Renderer.K8sApi.Deployment) => {
-      const pods = deploymentStore.getChildPods(deployment)
-      this.getControllerChartNode(deployment, pods);
-    });
+    return deploymentStore.getChildPods(deployment)
   }
 
-  protected generateStatefulSets() {
-    const { statefulsetStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
-
-    statefulsetStore.getAllByNs(selectedNamespaces).map((statefulset: Renderer.K8sApi.StatefulSet) => {
-      const pods = statefulsetStore.getChildPods(statefulset)
-      this.getControllerChartNode(statefulset, pods);
-    });
-  }
-
-  protected generateDaemonSets() {
+  protected getDaemonSetPods(daemonset: Renderer.K8sApi.DaemonSet) {
     const { daemonsetStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
 
-    daemonsetStore.getAllByNs(selectedNamespaces).map((daemonset: Renderer.K8sApi.DaemonSet) => {
-      const pods = daemonsetStore.getChildPods(daemonset)
-      this.getControllerChartNode(daemonset, pods)
-    });
+    return daemonsetStore.getChildPods(daemonset)
   }
 
-  protected generateSecrets() {
-    const { secretStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
+  protected getStatefulSetPods(statefulset: Renderer.K8sApi.StatefulSet) {
+    const { statefulsetStore } = this;
 
-    secretStore.getAllByNs(selectedNamespaces).forEach((secret: Renderer.K8sApi.Secret) => {
-      // Ignore service account tokens and tls secrets
-      if (["kubernetes.io/service-account-token", "kubernetes.io/tls"].includes(secret.type.toString())) return;
-
-      const secretNode = this.generateNode(secret);
-
-      if (secret.type.toString() === "helm.sh/release.v1") {
-        const helmReleaseNode = this.getHelmReleaseChartNode(secret.metadata.labels.name, secret.getNs())
-        this.addLink({source: secretNode.id, target: helmReleaseNode.id});
-      }
-
-      // search for container links
-      this.nodes.filter(node => node.kind === "Pod" && node.namespace == secret.getNs()).forEach((podNode) => {
-        const pod = (podNode.object as Renderer.K8sApi.Pod)
-        pod.getContainers().forEach((container) => {
-          container.env?.forEach((env) => {
-            const secretName = env.valueFrom?.secretKeyRef?.name;
-            if (secretName == secret.getName()) {
-              this.addLink({
-                source: podNode.id, target: secretNode.id
-              })
-            }
-          })
-          container.envFrom?.map(envFrom => {
-            const secretName = envFrom.secretRef?.name;
-            if (secretName && secretName == secret.getName()) {
-              this.addLink({
-                source: podNode.id, target: secretNode.id
-              })
-            }
-          })
-        })
-      })
-    })
-  }
-
-  protected generateVolumeClaims() {
-    const { pvcStore } = this;
-    const { selectedNamespaces} = this.namespaceStore;
-
-    pvcStore.getAllByNs(selectedNamespaces).forEach((pvc: Renderer.K8sApi.PersistentVolumeClaim) => {
-      this.generateNode(pvc);
-    })
+    return statefulsetStore.getChildPods(statefulset)
   }
 
   protected generateIngresses() {
-    const { ingressStore } = this
-    const { selectedNamespaces } = this.namespaceStore;
-    ingressStore.getAllByNs(selectedNamespaces).forEach((ingress: Renderer.K8sApi.Ingress) => {
+    const { ingressStore } = this;
+    const { namespace } = this.props.object.metadata;
+    let ingressNode: ChartDataSeries;
+    ingressStore.getAllByNs(namespace).forEach((ingress: Renderer.K8sApi.Ingress) => {
 
-      const ingressNode = this.generateNode(ingress);
-      ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
-        const secret = this.secretStore.getByName(tls.secretName, ingress.getNs());
-        if (secret) {
-          const secretNode = this.generateNode(secret)
-          if (secretNode) {
-            this.addLink({ source: ingressNode.id, target: secretNode.id })
-          }
-        }
-      })
       ingress.spec.rules.forEach((rule) => {
         rule.http.paths.forEach((path) => {
           const serviceName = (path.backend as any).serviceName || (path.backend as any).service.name
           if (serviceName) {
-            const service = this.serviceStore.getByName(serviceName, ingress.getNs());
-            if (service) {
-              const serviceNode = this.generateNode(service)
-              if (serviceNode) {
-                this.addLink({ source: ingressNode.id, target: serviceNode.id });
+            const serviceNode = this.nodes.filter(node => node.kind === "Service").find(node => node.object.getName() === serviceName);
+
+            if (serviceNode) {
+              if (!ingressNode) {
+                ingressNode = this.getIngressNode(ingress);
               }
+              this.addLink({ source: ingressNode.id, target: serviceNode.id });
             }
           }
         })
@@ -349,14 +295,13 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     })
   }
 
-  protected generateServices() {
-    const { serviceStore, podsStore} = this
-    const { selectedNamespaces } = this.namespaceStore;
-    serviceStore.getAllByNs(selectedNamespaces).forEach((service: Renderer.K8sApi.Service) => {
-      const serviceNode = this.generateNode(service);
+  protected generateServices(deploymentPods: Renderer.K8sApi.Pod[]) {
+    const { serviceStore} = this;
+    const { namespace } = this.props.object.metadata;
+    serviceStore.getAllByNs(namespace).forEach((service: Renderer.K8sApi.Service) => {
       const selector = service.spec.selector;
       if (selector) {
-        const pods = podsStore.items.filter((item: Renderer.K8sApi.Pod) => {
+        const pods = deploymentPods.filter((item: Renderer.K8sApi.Pod) => {
           const itemLabels = item.metadata.labels || {};
           let matches = item.getNs() == service.getNs()
           if (matches) {
@@ -367,13 +312,16 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
           }
           return matches
         });
-        pods.forEach((pod: Renderer.K8sApi.Pod) => {
-          const podNode = this.findNode(pod)
-          if (podNode) {
-            const serviceLink = { source: podNode.id, target: serviceNode.id}
-            this.addLink(serviceLink);
-          }
-        })
+        if (pods.length) {
+          const serviceNode = this.generateNode(service);
+          pods.forEach((pod: Renderer.K8sApi.Pod) => {
+            const podNode = this.findNode(pod)
+            if (podNode) {
+              const serviceLink = { source: podNode.id, target: serviceNode.id}
+              this.addLink(serviceLink);
+            }
+          })
+        }
       }
     })
 
@@ -439,10 +387,11 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     return chartNode;
   }
 
-  getControllerChartNode(object: Renderer.K8sApi.KubeObject, pods: Renderer.K8sApi.Pod[]): ChartDataSeries {
+  getControllerChartNode(object: Renderer.K8sApi.KubeObject, pods: Renderer.K8sApi.Pod[], podLinks = true): ChartDataSeries {
     const controllerNode = this.generateNode(object);
+    controllerNode.object = object;
     pods.forEach((pod: Renderer.K8sApi.Pod) => {
-      const podNode = this.getPodNode(pod)
+      const podNode = this.getPodNode(pod, podLinks);
       this.addLink({ source: controllerNode.id, target: podNode.id})
     })
     const releaseName = this.getHelmReleaseName(object);
@@ -464,8 +413,25 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     return null
   }
 
-  getPodNode(pod: Renderer.K8sApi.Pod): ChartDataSeries {
+  getIngressNode(ingress: Renderer.K8sApi.Ingress) {
+    const ingressNode = this.generateNode(ingress);
+
+    ingress.spec.tls?.filter(tls => tls.secretName).forEach((tls) => {
+      const secret = this.secretStore.getByName(tls.secretName, ingress.getNs());
+      if (secret) {
+        const secretNode = this.generateNode(secret)
+        if (secretNode) {
+          this.addLink({ source: ingressNode.id, target: secretNode.id })
+        }
+      }
+    });
+
+    return ingressNode
+  }
+
+  getPodNode(pod: Renderer.K8sApi.Pod, links = true): ChartDataSeries {
     const podNode = this.generateNode(pod);
+    podNode.object = pod;
     if (["Running", "Succeeded"].includes(pod.getStatusMessage())) {
       podNode.color = "#4caf50";
     }
@@ -478,6 +444,11 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     else if (["CrashLoopBackOff", "Failed", "Error"].includes(pod.getStatusMessage())) {
       podNode.color = "#ce3933"
     }
+
+    if (!links) {
+      return podNode;
+    }
+
     pod.getContainers().forEach((container) => {
       container.env?.forEach((env) => {
         const secretName = env.valueFrom?.secretKeyRef?.name;
@@ -538,9 +509,10 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
         }
       }
     })
+
     pod.getSecrets().forEach((secretName) => {
       const secret = this.secretStore.getByName(secretName, pod.getNs());
-      if (secret && secret.type.toString() !== "kubernetes.io/service-account-token") {
+      if (secret) {
         const dataItem = this.generateNode(secret)
         if (dataItem) {
           this.addLink({target: podNode.id, source: dataItem.id});
@@ -585,6 +557,9 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
       else if (obj instanceof Renderer.K8sApi.StatefulSet) {
         ReactDOM.render(<StatefulsetTooltip obj={obj} />, tooltipElement)
       }
+      else if (obj instanceof Renderer.K8sApi.Ingress) {
+        ReactDOM.render(<IngressTooltip obj={obj} />, tooltipElement)
+      }
       else {
         ReactDOM.render(<DefaultTooltip obj={obj}/>, tooltipElement)
       }
@@ -593,27 +568,25 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
   }
 
   render() {
-    if (!KubeForceChart.isReady) {
+    if (!KubeResourceChart.isReady) {
       return (
-        <div className="KubeForceChart flex center">
-          <Renderer.Component.Spinner />
-        </div>
+        <Renderer.Component.Spinner />
       )
     }
-    const theme = Renderer.Theme.getActiveTheme();
 
-    const { id, width, height } = this.props;
+    const theme = Renderer.Theme.getActiveTheme()
     return (
-      <div id={id} className="KubeForceChart">
+      <div id={this.props.id} className="KubeForceChart flex column">
         <div id="KubeForceChart-tooltip"/>
+        <Renderer.Component.DrawerTitle title="Resources"/>
+
         <ForceGraph2D
           graphData={this.state.data}
           ref={this.chartRef}
-          width={width || window.innerWidth - 70 - document.getElementsByClassName("sidebar-nav")[0].clientWidth }
-          height={height || window.innerHeight}
+          width={(document.getElementById("kube-resource-map") as HTMLElement)?.parentElement.firstElementChild?.clientWidth || 780}
+          height={400}
           autoPauseRedraw={false}
-          linkWidth={link => this.state.highlightLinks.has(link) ? 2 : 1}
-          maxZoom={2}
+          maxZoom={1.2}
           cooldownTicks={200}
           onEngineStop={() => {
             if (!this.initZoomDone) {
@@ -625,36 +598,39 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
               this.initZoomDone = true;
             }
           }}
+          linkWidth={link => this.state.highlightLinks.has(link) ? 2 : 1}
           onNodeHover={this.handleNodeHover.bind(this)}
           onNodeDrag={this.handleNodeHover.bind(this)}
           nodeVal="value"
-          nodeLabel={ (node: ChartDataSeries) => { return this.renderTooltip(node.object)} }
+          nodeLabel={ (node) => this.renderTooltip((node as ChartDataSeries).object) }
           nodeVisibility={"visible"}
           linkColor={(link) => { return (link.source as ChartDataSeries).color }}
-          onNodeClick={(node: ChartDataSeries) => {
-            if (node.object) {
-              if (node.object.kind == "HelmRelease") {
-                const path = `/apps/releases/${node.object.getNs()}/${node.object.getName()}?`
+          onNodeClick={(node) => {
+            if ((node as ChartDataSeries).object) {
+              const { object } = node as ChartDataSeries;
+              if (object.kind == "HelmRelease") {
+                const path = `/apps/releases/${object.getNs()}/${object.getName()}?`
                 Renderer.Navigation.navigate(path);
               } else {
-                const detailsUrl = Renderer.Navigation.getDetailsUrl(node.object.selfLink);
+                const detailsUrl = Renderer.Navigation.getDetailsUrl(object.selfLink);
                 Renderer.Navigation.navigate(detailsUrl);
               }
             }
           }}
-          nodeCanvasObject={(node: ChartDataSeries, ctx, globalScale) => {
+          nodeCanvasObject={(node, ctx, globalScale) => {
             const padAmount = 0;
-            const label = node.name;
-            const fontSize = 8;
+            const { name, value, color, image, object } = node as ChartDataSeries
+            const label = name;
+            const fontSize = 9;
 
-            const r = Math.sqrt(Math.max(0, node.value || 10)) * 4 + padAmount;
+            const r = Math.sqrt(Math.max(0, value || 10)) * 4 + padAmount;
 
             // draw outer circle
-            if (["Deployment", "DaemonSet", "StatefulSet"].includes(node.kind)) {
+            if (object.getId() === this.props.object.getId()) {
               ctx.beginPath();
               ctx.lineWidth = 2;
               ctx.arc(node.x , node.y, r + 3, 0, 2 * Math.PI, false);
-              ctx.strokeStyle = node.color;
+              ctx.strokeStyle = color;
               ctx.stroke();
               ctx.fillStyle = theme.colors["secondaryBackground"];
               ctx.fill();
@@ -666,18 +642,17 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
 
             ctx.beginPath();
             ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-            ctx.fillStyle = node.color || 'rgba(31, 120, 180, 0.92)';
+            ctx.fillStyle = color || 'rgba(31, 120, 180, 0.92)';
             ctx.fill();
 
             // draw icon
-            const image = node.image;
             if (image) {
               try {
                 ctx.drawImage(image, node.x - 15, node.y - 15, 30, 30);
-              } catch (e) {
-                console.error(e);
               }
-
+              catch (e) {
+                console.error(e)
+              }
             }
 
             // draw label

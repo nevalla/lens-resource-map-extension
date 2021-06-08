@@ -7,7 +7,6 @@ interface Props {
   iconSize?: number;
 }
 
-@observer
 export class KubeResourceChartLegend extends React.Component<Props> {
   static defaultProps: Props = {
     iconSize: 32,

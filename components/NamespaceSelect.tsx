@@ -2,43 +2,38 @@
 
 import "./NamespaceSelect.scss";
 import * as React from "react";
-import { observable } from "mobx";
+import { action, computed, makeObservable, observable } from "mobx";
 import { observer } from "mobx-react";
-import { Component, K8sApi, Util } from "@k8slens/extensions";
+import { Renderer, Common } from "@k8slens/extensions";
 
-const namespaceStore = K8sApi.apiManager.getStore(K8sApi.namespacesApi) as K8sApi.NamespaceStore;
+const namespaceStore: Renderer.K8sApi.NamespaceStore = Renderer.K8sApi.apiManager.getStore(Renderer.K8sApi.namespacesApi) as Renderer.K8sApi.NamespaceStore;
 
-export const selectedNamespaces = observable.set(namespaceStore.contextNs);
+export const selectedNamespaces = observable.set(namespaceStore.selectedNamespaces);
 
 interface Props {
   className?: string;
   placeholder?: string;
   onSelect?(namespace: string): void;
 }
-
 @observer
 export class NamespaceSelect extends React.Component<Props> {
-  async componentDidMount() {
-    await namespaceStore.loadAll();
+
+  @computed.struct get options(): Renderer.Component.SelectOption[] {
+    return namespaceStore.items.map(ns => ({ value: ns.getName() }));
   }
 
-  formatOptionLabel = ({ value }: Component.SelectOption) => {
-    const isSelected = selectedNamespaces.has(value);
-    return (
-      <div className="NamespaceSelectOption flex gaps">
-        <Component.Icon small material="layers"/>
-        <span>{value}</span>
-        {isSelected && <Component.Icon small material="check" className="box right"/>}
-      </div>
-    );
-  };
+  constructor(props: {}) {
+    super(props)
+    makeObservable(this);
+  }
 
+  async componentDidMount() {
+    //await namespaceStore.reloadAll();
+  }
+
+  @action
   toggleNamespace = (namespace: string) => {
-    if (selectedNamespaces.has(namespace)) {
-      selectedNamespaces.delete(namespace)
-    } else {
-      selectedNamespaces.add(namespace);
-    }
+    namespaceStore.toggleContext(namespace);
   }
 
   protected onSelect(namespace: string) {
@@ -49,17 +44,10 @@ export class NamespaceSelect extends React.Component<Props> {
   }
 
   render() {
-    const { className, placeholder = "Namespaces" } = this.props;
-    const Select = Component.Select as React.ComponentType<any>;
+    const { className } = this.props;
     return (
-      <Select
-        placeholder={placeholder}
-        className={Util.cssNames("NamespaceSelect", className)}
-        formatOptionLabel={this.formatOptionLabel}
-        closeMenuOnSelect={false}
-        controlShouldRenderValue={false}
-        options={namespaceStore.items.map(ns => ({ value: ns.getName() }))}
-        onChange={({ value }: Component.SelectOption) => this.onSelect(value)}
+      <Renderer.Component.NamespaceSelectFilter
+        className={Common.Util.cssNames("NamespaceSelect", className)}
       />
     );
   }
