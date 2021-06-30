@@ -591,9 +591,9 @@ export class KubeResourceChart extends React.Component<KubeResourceChartProps, S
           onEngineStop={() => {
             if (!this.initZoomDone) {
               if (this.nodes.length > 10) {
-                this.chartRef.current.zoomToFit(400);
+                this.chartRef.current?.zoomToFit(400);
               } else {
-                this.chartRef.current.zoom(1.2);
+                this.chartRef.current?.zoom(1.2);
               }
               this.initZoomDone = true;
             }
