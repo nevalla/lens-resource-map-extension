@@ -1,6 +1,6 @@
 {
 	"name": "@nevalla/kube-resource-map",
-	"version": "1.0.0-alpha.1",
+	"version": "1.0.0",
 	"description": "Visualization of Kubernetes resources and their relations",
 	"publisher": "Lauri Nevala",
 	"renderer": "dist/renderer.js",
