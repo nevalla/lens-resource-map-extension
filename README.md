@@ -6,6 +6,16 @@ Lens Resource Map is an extension for [Lens - The Kubernetes IDE](https://k8slen
 
 ## Installation
 
-1. Install [Lens](https://k8slens.dev), if not installed.
+**Lens 5 and above:**
 
-2. Download extension package (tgz) from the [latest release](https://github.com/nevalla/lens-resource-map-extension/releases/latest) and [install](https://docs.k8slens.dev/v4.0.8/extensions/usage/#installing-an-extension) it to Lens.
+1. Install [Lens](https://k8slens.dev), if not installed.
+2. Switch to the Extensions view (`CMD+SHIFT+E` on macOS) on Lens.
+3. Enter `@nevalla/kube-resource-map` into the Install Extension box.
+4. Click on the Install button.
+
+**Lens 4:**
+1. Install [Lens](https://k8slens.dev), if not installed.
+2. Download version [0.2.0](https://github.com/nevalla/lens-resource-map-extension/releases/download/v0.2.0/nevalla-kube-resource-map-0.2.0.tgz) tarball.
+3. Switch to the Extensions view (`CMD+SHIFT+E` on macOS) on Lens.
+4. Select tarball file from filesystem.
+5. Click on the Install button.
