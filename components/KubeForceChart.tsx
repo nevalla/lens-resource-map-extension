@@ -603,13 +603,14 @@ export class KubeForceChart extends React.Component<KubeForceChartProps, State> 
     const theme = Renderer.Theme.getActiveTheme();
 
     const { id, width, height } = this.props;
+    const sidebarWidth = (document.querySelectorAll('[data-testid="cluster-sidebar"]')[0] as HTMLElement)?.offsetWidth || 200;
     return (
       <div id={id} className="KubeForceChart">
         <div id="KubeForceChart-tooltip"/>
         <ForceGraph2D
           graphData={this.state.data}
           ref={this.chartRef}
-          width={width || window.innerWidth - 70 - document.getElementsByClassName("sidebar-nav")[0].clientWidth }
+          width={width || window.innerWidth - 70 - sidebarWidth }
           height={height || window.innerHeight}
           autoPauseRedraw={false}
           linkWidth={link => this.state.highlightLinks.has(link) ? 2 : 1}
