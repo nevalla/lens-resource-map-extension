@@ -1,13 +1,13 @@
 {
 	"name": "@nevalla/kube-resource-map",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Lens extension to visualize Kubernetes resources and their relations",
 	"homepage": "https://github.com/nevalla/lens-resource-map-extension",
 	"license": "MIT",
 	"publisher": "Lauri Nevala",
 	"renderer": "dist/renderer.js",
 	"engines": {
-		"node": ">=12.0 <13.0",
+		"node": ">=12.0",
 		"lens": "^5.0.0-beta.7"
 	},
 	"keywords": [
