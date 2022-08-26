@@ -277,7 +277,7 @@ export class KubeResourceChart extends React.Component<KubeResourceChartProps, S
     let ingressNode: ChartDataSeries;
     ingressStore.getAllByNs(namespace).forEach((ingress: Renderer.K8sApi.Ingress) => {
 
-      ingress.spec.rules.forEach((rule) => {
+      ingress.spec.rules?.forEach((rule) => {
         rule.http.paths.forEach((path) => {
           const serviceName = (path.backend as any).serviceName || (path.backend as any).service.name
           if (serviceName) {
