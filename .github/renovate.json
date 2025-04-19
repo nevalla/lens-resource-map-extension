@@ -1,0 +1,66 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":semanticCommits",
+    ":dependencyDashboard",
+    ":maintainLockFilesWeekly",
+    ":semanticPrefixFixDepsChoreOthers"
+  ],
+  "baseBranches": ["main"],
+  "configMigration": true,
+  "pnpmShrinkwrap": true,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^@freelensapp"],
+      "groupName": "Freelens packages",
+      "labels": ["freelens", "dependencies"]
+    },
+    {
+      "matchPackagePatterns": ["^react", "^@types/react"],
+      "groupName": "React packages",
+      "labels": ["react", "dependencies"]
+    },
+    {
+      "matchPackagePatterns": ["webpack", "babel", "loader"],
+      "groupName": "Build tools",
+      "labels": ["build", "dependencies"]
+    },
+    {
+      "matchPackagePatterns": ["d3", "vis-"],
+      "groupName": "Visualization packages",
+      "labels": ["visualization", "dependencies"]
+    },
+    {
+      "matchPackagePatterns": ["^@biomejs"],
+      "groupName": "Biome packages",
+      "labels": ["linting", "dependencies"]
+    },
+    {
+      "matchPackagePatterns": ["^jest", "^@testing"],
+      "groupName": "Testing packages",
+      "labels": ["testing", "dependencies"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "labels": ["major-update", "dependencies"]
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "labels": ["minor-update", "dependencies"]
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "labels": ["patch-update", "dependencies"]
+    }
+  ],
+  "ignorePaths": ["node_modules/**"],
+  "dependencyDashboardLabels": ["dependencies", "renovate-dashboard"],
+  "labels": ["dependencies"],
+  "assignees": ["omarluq"],
+  "reviewers": ["omarluq"]
+}
+
