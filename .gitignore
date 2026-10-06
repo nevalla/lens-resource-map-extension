@@ -1,8 +1,6 @@
-dist
-node_modules
-
-# log file by lens when running tests using @jest-runner/electron
-lens.log
+dist/
+node_modules/
+tsconfig.tsbuildinfo
 .DS_Store
 *.tgz
-*.bak
+.claude/settings.json

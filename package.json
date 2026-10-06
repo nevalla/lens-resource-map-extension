@@ -1,68 +1,67 @@
 {
-	"name": "@nevalla/kube-resource-map",
-	"version": "1.1.0",
-	"description": "Lens extension to visualize Kubernetes resources and their relations",
-	"homepage": "https://github.com/nevalla/lens-resource-map-extension",
-	"license": "MIT",
-	"publisher": "Lauri Nevala",
-	"renderer": "dist/renderer.js",
-	"engines": {
-		"node": ">=16.0",
-		"lens": "^6.0.0"
-	},
-	"keywords": [
-		"lens",
-		"extension",
-		"k8slens",
-		"kubernetes"
-	],
-	"files": [
-		"dist/"
-	],
-	"updateSource": "github|npmjs",
-	"scripts": {
-		"start": "webpack --watch",
-		"build": "npm run clean && webpack",
-		"clean": "rm -rf ./dist",
-		"test": "jest"
-	},
-	"jest": {
-		"runner": "@jest-runner/electron",
-		"testEnvironment": "@jest-runner/electron/environment"
-	},
-	"contributes": {
-		"crds": [],
-		"cloudProviders": [],
-		"kubernetesDistros": []
-	},
-	"dependencies": {},
-	"devDependencies": {
-		"@jest-runner/electron": "^3.0.0",
-		"@k8slens/extensions": "5.0.0-beta.7",
-		"@testing-library/jest-dom": "^5.11.6",
-		"@testing-library/react": "^11.2.2",
-		"@types/d3-force": "^2.1.0",
-		"@types/jest": "^26.0.15",
-		"@types/node": "^12.12.9",
-		"@types/react": "^17.0.0",
-		"@types/react-dom": "^17.0.1",
-		"@typescript-eslint/eslint-plugin": "^4.8.1",
-		"@typescript-eslint/parser": "^4.8.1",
-		"css-loader": "^5.0.1",
-		"d3-force": "^2.1.1",
-		"electron": "^11.0.3",
-		"jest": "^26.6.3",
-		"mobx": "^6.3.0",
-		"mobx-react": "^7.1.0",
-		"node-sass": "^6.0.0",
-		"react": "^17.0.1",
-		"react-dom": "^17.0.1",
-		"react-force-graph": "1.41.5",
-		"sass-loader": "^10.1.0",
-		"style-loader": "^2.0.0",
-		"ts-loader": "^8.0.11",
-		"typescript": "^4.1.2",
-		"webpack": "^4.44.2",
-		"webpack-cli": "^3.3.11"
-	}
+  "name": "@nevalla/kube-resource-map",
+  "version": "2.0.0",
+  "description": "See how a cluster's workloads, services, ingresses, config and Helm releases relate, as a live graph.",
+  "keywords": [
+    "lens-extension"
+  ],
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "assets",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "lensExtension": {
+    "icon": "assets/icon.svg",
+    "banner": "assets/banner.svg"
+  },
+  "scripts": {
+    "build": "lens-types-check && lens-package-build --entry-point ./src/index.ts",
+    "clean": "rimraf dist/"
+  },
+  "dependencies": {
+    "@k8slens/cluster-contracts": "^2.4.0",
+    "@k8slens/details-panel-contracts": "^1.1.0",
+    "@k8slens/drop-down-menu-contracts": "^2.2.2",
+    "@k8slens/element-components": "^3.9.1",
+    "@k8slens/feature-core": "^7.5.2",
+    "@k8slens/icon": "^4.0.0",
+    "@k8slens/injectable": "^26.2.1",
+    "@k8slens/input-components": "^1.0.1",
+    "@k8slens/kubernetes-contracts": "^2.0.2",
+    "@k8slens/main-view-contracts": "^1.3.2",
+    "@k8slens/navigation-contracts": "^1.0.0",
+    "@k8slens/navigator-components": "^1.0.3",
+    "@k8slens/navigator-contracts": "^2.2.0",
+    "@k8slens/notifications-contracts": "^1.0.2",
+    "@k8slens/persistable-contracts": "^1.0.2",
+    "@k8slens/stylesheet-contracts": "^1.0.0",
+    "@k8slens/subscribable": "^1.1.3",
+    "@k8slens/subscribable-react": "^1.0.3",
+    "@k8slens/tab-contracts": "^1.2.0",
+    "@k8slens/use-inject": "^1.0.2",
+    "mobx": "^6.15.0",
+    "mobx-react": "^9.2.1",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@k8slens/package-build": "^3.0.0",
+    "@k8slens/typescript": "^8.0.0",
+    "@types/react": "^19.2.0",
+    "d3-force-3d": "^3.0.6",
+    "force-graph": "^1.52.0",
+    "rimraf": "^4.4.1"
+  },
+  "license": "MIT",
+  "author": "Lauri Nevala",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nevalla/lens-resource-map-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nevalla/lens-resource-map-extension/issues"
+  },
+  "homepage": "https://github.com/nevalla/lens-resource-map-extension"
 }
